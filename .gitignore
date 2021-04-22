@@ -91,6 +91,7 @@ _deps
 # Python compiled modules
 *.pyc
 *.pyo
+*/.ipynb_checkpoints/
 
 # Archives
 *.7z
@@ -105,3 +106,6 @@ _deps
 # Doxygen
 documentation/html/*
 documentation/latex/*
+
+# Results
+*/results/
