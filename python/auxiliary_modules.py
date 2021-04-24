@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 from dolfin import NonlinearProblem
 from dolfin import SystemAssembler
-from enum import Enum
 
 class CustomNonlinearProblem(NonlinearProblem):
     """Class for interfacing with not only :py:class:`NewtonSolver`."""

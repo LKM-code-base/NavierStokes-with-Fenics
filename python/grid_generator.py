@@ -1,6 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
+import os
+from os import path
+import subprocess
+
 from enum import Enum, auto
+
+import math
+
+import dolfin as dlfn
+from mshr import Sphere, Circle, generate_mesh
 
 class GeometryType(Enum):
     spherical_annulus = auto()
@@ -24,39 +34,29 @@ class SymmetricPipeBoundaryMarkers(Enum):
     inlet = 102
     outlet = 103
 
-class RectangleBoundaryMarkers(Enum):
+class HyperCubeBoundaryMarkers(Enum):
     """
-    Simple enumeration to identify the boundaries of a rectangle uniquely.
+    Simple enumeration to identify the boundaries of a hyper rectangle uniquely.
     """
-    top = auto()
-    bottom = auto()
     left = auto()
     right = auto()
-    
-class CuboidBoundaryMarkers(Enum):
-    """
-    Simple enumeration to identify the boundaries of a rectangle uniquely.
-    """
-    top = auto()
     bottom = auto()
-    left = auto()
-    right = auto()
-    front = auto()
+    top = auto()
     back = auto()
+    front = auto()
+    opening = auto()
 
-import dolfin
-class CircularBoundary(dolfin.SubDomain):
+class CircularBoundary(dlfn.SubDomain):
     def __init__(self, **kwargs):
         super().__init__()
-        assert(isinstance(kwargs["mesh"], dolfin.Mesh))
+        assert(isinstance(kwargs["mesh"], dlfn.Mesh))
         assert(isinstance(kwargs["radius"], float) and kwargs["radius"] > 0.0)
         self._hmin = kwargs["mesh"].hmin()
         self._radius = kwargs["radius"]
     def inside(self, x, on_boundary):
         # tolerance: half length of smallest element
         tol = self._hmin / 2. 
-        from math import sqrt
-        result = abs(sqrt(x[0]**2 + x[1]**2) - self._radius) < tol
+        result = abs(math.sqrt(x[0]**2 + x[1]**2) - self._radius) < tol
         return result and on_boundary
 
 def spherical_shell(dim, radii, n_refinements = 0):
@@ -72,13 +72,11 @@ def spherical_shell(dim, radii, n_refinements = 0):
     assert isinstance(n_refinements, int) and n_refinements >= 0
     
     # mesh generation
-    from dolfin import Point
     if dim == 2:
-        center = Point(0., 0.)
+        center = dlfn.Point(0., 0.)
     elif dim == 3:
-        center = Point(0., 0., 0.)
-    
-    from mshr import Sphere, Circle, generate_mesh
+        center = dlfn.Point(0., 0., 0.)
+
     if dim == 2:
         domain = Circle(center, ro) \
                - Circle(center, ri)
@@ -89,13 +87,11 @@ def spherical_shell(dim, radii, n_refinements = 0):
         mesh = generate_mesh(domain, 15)
                
     # mesh refinement
-    from dolfin import refine
     for i in range(n_refinements):
-        mesh = refine(mesh)
+        mesh = dlfn.refine(mesh)
         
     # subdomains for boundaries
-    from dolfin import MeshFunction
-    facet_marker = MeshFunction("size_t", mesh, mesh.topology().dim() - 1)
+    facet_marker = dlfn.MeshFunction("size_t", mesh, mesh.topology().dim() - 1)
     facet_marker.set_all(0)
     
     # mark boundaries
@@ -107,62 +103,192 @@ def spherical_shell(dim, radii, n_refinements = 0):
     
     return mesh, facet_marker
     
-def square_cavity(dim, n_points = 10):
+def hyper_cube(dim, n_points = 10):
     assert isinstance(dim, int)
     assert dim == 2 or dim == 3
     assert isinstance(n_points, int) and n_points >= 0
     
     # mesh generation
-    from dolfin import Point, RectangleMesh, BoxMesh
     if dim == 2:
-        mesh = RectangleMesh(Point(0., 0.), Point(1., 1.),
-                             n_points, n_points)
+        corner_points = (dlfn.Point(0., 0.), dlfn.Point(1., 1.))
+        mesh = dlfn.RectangleMesh(*corner_points, n_points, n_points)
     else:
-        mesh = BoxMesh(Point(0., 0., 0.), Point(1., 1., 1.),
-                       n_points, n_points, n_points)
-               
+        corner_points = (dlfn.Point(0., 0., 0.), dlfn.Point(1., 1., 1.))
+        mesh = dlfn.BoxMesh(*corner_points, n_points, n_points, n_points)
+    assert dim == mesh.topology().dim()
     # subdomains for boundaries
-    from dolfin import MeshFunction
-    facet_marker = MeshFunction("size_t", mesh, mesh.topology().dim() - 1)
+    facet_marker = dlfn.MeshFunction("size_t", mesh, dim - 1)
     facet_marker.set_all(0)
     
     # mark boundaries
-    from dolfin import CompiledSubDomain
-    if dim == 2:
-        BoundaryMarkers = RectangleBoundaryMarkers
-        
-        gamma01 = CompiledSubDomain("near(x[0], 0.0) && on_boundary")
-        gamma02 = CompiledSubDomain("near(x[0], 1.0) && on_boundary")
-        gamma03 = CompiledSubDomain("near(x[1], 0.0) && on_boundary")
-        gamma04 = CompiledSubDomain("near(x[1], 1.0) && on_boundary")
-        
-        gamma01.mark(facet_marker, BoundaryMarkers.left.value)
-        gamma02.mark(facet_marker, BoundaryMarkers.right.value)
-        gamma03.mark(facet_marker, BoundaryMarkers.bottom.value)
-        gamma04.mark(facet_marker, BoundaryMarkers.top.value)
-    else:
-        BoundaryMarkers = CuboidBoundaryMarkers
-        
-        gamma01 = CompiledSubDomain("near(x[0], 0.0) && on_boundary")
-        gamma02 = CompiledSubDomain("near(x[0], 1.0) && on_boundary")
-        gamma03 = CompiledSubDomain("near(x[1], 0.0) && on_boundary")
-        gamma04 = CompiledSubDomain("near(x[1], 1.0) && on_boundary")
-        gamma05 = CompiledSubDomain("near(x[2], 0.0) && on_boundary")
-        gamma06 = CompiledSubDomain("near(x[2], 1.0) && on_boundary")
+    BoundaryMarkers = HyperCubeBoundaryMarkers
 
-        gamma01.mark(facet_marker, BoundaryMarkers.left.value)
-        gamma02.mark(facet_marker, BoundaryMarkers.right.value)
-        gamma03.mark(facet_marker, BoundaryMarkers.bottom.value)
-        gamma04.mark(facet_marker, BoundaryMarkers.top.value)
+    gamma01 = dlfn.CompiledSubDomain("near(x[0], 0.0) && on_boundary")
+    gamma02 = dlfn.CompiledSubDomain("near(x[0], 1.0) && on_boundary")
+    gamma03 = dlfn.CompiledSubDomain("near(x[1], 0.0) && on_boundary")
+    gamma04 = dlfn.CompiledSubDomain("near(x[1], 1.0) && on_boundary")
+    
+    gamma01.mark(facet_marker, BoundaryMarkers.left.value)
+    gamma02.mark(facet_marker, BoundaryMarkers.right.value)
+    gamma03.mark(facet_marker, BoundaryMarkers.bottom.value)
+    gamma04.mark(facet_marker, BoundaryMarkers.top.value)
+
+    if dim == 3:
+        gamma05 = dlfn.CompiledSubDomain("near(x[2], 0.0) && on_boundary")
+        gamma06 = dlfn.CompiledSubDomain("near(x[2], 1.0) && on_boundary")
+        
         gamma05.mark(facet_marker, BoundaryMarkers.back.value)
         gamma06.mark(facet_marker, BoundaryMarkers.front.value)
 
     return mesh, facet_marker
+
+def open_hyper_cube(dim, n_points = 10, openings = None):
+    """
+    Create a hyper cube with openings.
+    
+    The openings are specified as a list of tuples containing the location,
+    the center and the width of the opening. For example,
+
+        openings = ( ("top", center, width), )
+    
+    where in 2D
+
+        center = (0.5, 1.0)
+        width = 0.25
+        
+    and in 3D
+        
+        center = (0.5, 0.5, 1.0)
+        width = (0.25, 0.25)
+    """
+    tol = 1.0e3 * dlfn.DOLFIN_EPS
+
+    if openings is None:
+        return hyper_cube(dim, n_points)
+    
+    # input check
+    assert isinstance(openings, (tuple, list))
+    assert all(isinstance(o, (tuple, list)) for o in openings)
+    for position, center, width in openings:
+        assert position in ("top", "bottom", "left", "right", "front", "back")
+        
+        assert isinstance(center, (tuple, list))
+        assert len(center) == dim
+        assert all(isinstance(x, float) for x in center)
+        
+        if isinstance(width, float):
+            assert dim == 2
+        else:
+            assert isinstance(width, (tuple, list))
+            assert len(width) == dim - 1
+            assert all(isinstance(x, float) and x > 0.0 for x in width)
+    
+    # get hyper cube mesh with marked boundaries
+    mesh, facet_markers = hyper_cube(dim, n_points)
+    
+    # the boundary markers are modified where an opening is located
+    for position, center, width in openings:
+        if isinstance(width, float):
+            width = (width, )
+        # find on which the facet the center point is located
+        center_point = dlfn.Point(*center)
+        facet = None
+        for f in dlfn.facets(mesh):
+            if f.exterior():
+                normal = f.normal()
+                center_point_in_facet_plane = False
+                for v in dlfn.vertices(f):
+                    d = v.point().dot(normal)
+                    if abs(normal.dot(center_point) - d) < tol:
+                        center_point_in_facet_plane = True
+                        break
+                if center_point_in_facet_plane is True:
+                    facet = f
+                    break
+        assert facet is not None, "Center point is not on the boundary"
+        
+        # get boundary id of the corresponding boundary
+        bndry_id = facet_markers[facet]
+        
+        # check that center point is on the right part of boundary and
+        # modify the boundary markers
+        BoundaryMarkers = HyperCubeBoundaryMarkers
+        if position in ("left", "right"):
+            assert bndry_id in (BoundaryMarkers.left.value, BoundaryMarkers.right.value)
+            if position == "left":
+                assert bndry_id == BoundaryMarkers.left.value
+                str_standard_condition = "near(x[0], 0.0) && on_boundary"
+            elif position == "right":
+                assert bndry_id == BoundaryMarkers.right.value
+                str_standard_condition = "near(x[0], 1.0) && on_boundary"
+            if dim == 2:
+                str_condition =  " && ".join(
+                        [str_standard_condition,
+                         "-l_y / 2.0 <= (x[1] - c_y) <= l_y / 2.0"])
+                gamma = dlfn.CompiledSubDomain(str_condition,
+                                               l_y = width[0], c_y=center[1])
+
+            elif dim == 3:
+                str_condition =  " && ".join(
+                        [str_standard_condition,
+                         "-l_y / 2.0 <= (x[1] - c_y) <= l_y / 2.0",
+                         "-l_z / 2.0 <= (x[2] - c_z) <= l_z / 2.0"])
+                gamma = dlfn.CompiledSubDomain(str_condition,
+                                               l_y = width[0], l_z=width[1],
+                                               c_y=center[1], c_z=center[2])
+            gamma.mark(facet_markers, BoundaryMarkers.opening.value)
+        
+        elif position in ("bottom", "top"):
+            assert bndry_id in (BoundaryMarkers.bottom.value, BoundaryMarkers.top.value), \
+                "Boundary id {0} does not mactch the expected values "\
+                "({1}, {2})".format(bndry_id, BoundaryMarkers.bottom.value, BoundaryMarkers.top.value)
+            if position == "bottom":
+                assert bndry_id == BoundaryMarkers.bottom.value, \
+                    "Boundary id {0} does not mactch the expected value {1}".format(bndry_id, BoundaryMarkers.bottom.value)
+                str_standard_condition = "near(x[1], 0.0) && on_boundary"
+            elif position == "top":
+                assert bndry_id == BoundaryMarkers.top.value, \
+                    "Boundary id {0} does not mactch the expected value {1}".format(bndry_id, BoundaryMarkers.top.value)
+                str_standard_condition = "near(x[1], 1.0) && on_boundary"
+            if dim == 2:
+                str_condition =  " && ".join(
+                        [str_standard_condition,
+                         "std::abs(x[0] - c_x) <= (l_x / 2.0)"])
+                gamma = dlfn.CompiledSubDomain(str_condition,
+                                               l_x = width[0], c_x=center[0])
+            elif dim == 3:
+                str_condition =  " && ".join(
+                        [str_standard_condition,
+                         "-l_x / 2.0 <= (x[0] - c_x) <= l_x / 2.0",
+                         "-l_z / 2.0 <= (x[2] - c_z) <= l_z / 2.0"])
+                gamma = dlfn.CompiledSubDomain(str_condition,
+                                               l_x=width[0], l_z=width[1],
+                                               c_x=center[0], c_z=center[2])
+            gamma.mark(facet_markers, BoundaryMarkers.opening.value)
+            
+        elif position in ("back", "front"):
+            assert dim == 3
+            assert bndry_id in (BoundaryMarkers.back.value, BoundaryMarkers.front.value)
+            if position == "back":
+                assert bndry_id == BoundaryMarkers.back.value
+                str_standard_condition = "near(x[2], 0.0) && on_boundary"
+            elif position == "front":
+                assert bndry_id == BoundaryMarkers.front.value
+                str_standard_condition = "near(x[2], 1.0) && on_boundary"
+            str_condition =  " && ".join(
+                    [str_standard_condition,
+                     "-l_x / 2.0 <= (x[0] - c_x) <= l_x / 2.0",
+                     "-l_y / 2.0 <= (x[1] - c_y) <= l_y / 2.0"])
+            gamma = dlfn.CompiledSubDomain(str_condition,
+                                           l_x=width[0], l_y=width[1],
+                                           c_x=center[0], c_y=center[1])
+            gamma.mark(facet_markers, BoundaryMarkers.opening.value)
+        else:
+            raise RuntimeError()
+
+    return mesh, facet_markers
     
 def converging_diverging_pipe():
-    import os
-    import subprocess
-    from os import path
     # define location of gmsh files
     geo_file = path.join(os.getcwd(), "gmsh", "converging_diverging_pipe.geo")
     assert path.exists(geo_file)
@@ -202,8 +328,7 @@ def converging_diverging_pipe():
             if cnt == 4:
                 break
 
-    from dolfin import Mesh, MeshFunction
-    mesh = Mesh(xml_file)
-    facet_marker = MeshFunction("size_t", mesh, physical_regions_xml_file)
+    mesh = dlfn.Mesh(xml_file)
+    facet_marker = dlfn.MeshFunction("size_t", mesh, physical_regions_xml_file)
     
     return mesh, facet_marker
