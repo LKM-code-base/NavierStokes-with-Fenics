@@ -42,7 +42,8 @@ i, j, k, l = indices(4)
 delta = Identity(2)
 
 scalar = FiniteElement('P', triangle, 1)
-vector = VectorElement('P', triangle, 1)
+vector = VectorElement('P', triangle, 2)
+#equal order elements are known to be unstable for an incompressible fluid, quadratic element for the velocity and linear for the pressure
 mixed_element = MixedElement([scalar, vector])
 Space = FunctionSpace(mesh, mixed_element)
 
@@ -91,8 +92,10 @@ tau = as_tensor( 2.*mu*d[i,j] , [i,j] )
 #tau = as_tensor( mu*v[i].dx(j) , [i,j] )
 g = Expression(('980*time','0.'),degree=1,time=0)
 F_1 = v[i].dx(i)*del_p*dv
-F_2 = ( ( rho*(v-v0)[j]/dt -rho*g[j] + rho*v[i]*(v[j].dx(i)) + p.dx(j) ) *del_v[j]  + tau[i,j]*del_v[j].dx(i) )*dv 
-
+#F_2 = ( ( rho*(v-v0)[j]/dt -rho*g[j] + rho*v[i]*(v[j].dx(i)) + p.dx(j) ) *del_v[j]  + tau[i,j]*del_v[j].dx(i) )*dv 
+F_2 = ( ( rho*(v-v0)[j]/dt -rho*g[j] + rho*v[i]*(v[j].dx(i)) + p.dx(j) ) *del_v[j]  + tau[i,j]*1./2.*( del_v[j].dx(i) + del_v[i].dx(j) )*dv 
+#because the antisymmetric part cancels, tau[i, j], with any other second rank tensor, 
+#like' del_v[j].dx(i) ', only the symmetric part of this kind of tensor, like 1./2.*( del_v[j].dx(i) + del_v[i].dx(j) ), matters.
 Form = F_1 + F_2 
 
 Gain = derivative(Form, unkn, dunkn)
