@@ -20,8 +20,8 @@ class CavityProblem(StationaryNavierStokesProblem):
                 (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.left.value, None),
                 (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.right.value, None),
                 (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.bottom.value, None),
-                (VelocityBCType.constant, HyperCubeBoundaryMarkers.right.value, (1.0, 0.0)))
+                (VelocityBCType.constant, HyperCubeBoundaryMarkers.top.value, (1.0, 0.0)))
         self._bcs = {"velocity": velocity_bcs}
         
-cf = CavityProblem(10)
+cf = CavityProblem(100)
 cf.solve_problem()
