@@ -28,8 +28,7 @@ class GravityDrivenFlowProblem(StationaryNavierStokesProblem):
         velocity_bcs = (
                 (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.left.value, None),
                 (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.right.value, None),
-                (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.bottom.value, None),
-                (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.right.value, None))
+                (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.bottom.value, None))
         self._bcs = {"velocity": velocity_bcs}
     
     def set_body_force(self):
