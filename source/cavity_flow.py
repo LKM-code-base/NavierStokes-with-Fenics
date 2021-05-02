@@ -9,6 +9,8 @@ class CavityProblem(StationaryNavierStokesProblem):
         
         self._n_points = n_points
         self._problem_name  = "Cavity"
+        
+        self.set_parameters(Re = 10.0)
     
     def setup_mesh(self):
         # create mesh
