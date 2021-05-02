@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 
 import dolfin as dlfn
+dlfn.set_log_level(40)
+
 from navier_stokes_problem import StationaryNavierStokesProblem, VelocityBCType
 
 from grid_generator import open_hyper_cube, HyperCubeBoundaryMarkers
@@ -13,7 +15,7 @@ class GravityDrivenFlowProblem(StationaryNavierStokesProblem):
         self._n_points = n_points
         self._problem_name  = "OpenCube"
         
-        self.set_parameters(Re=250.0,  Fr=10.0)
+        self.set_parameters(Re=25.0,  Fr=10.0)
     
     def setup_mesh(self):
         # create mesh
@@ -35,6 +37,7 @@ class GravityDrivenFlowProblem(StationaryNavierStokesProblem):
     
     def set_body_force(self):
         self._body_force = dlfn.Constant((0.0, -1.0))
-        
-gravity_flow = GravityDrivenFlowProblem(75)
-gravity_flow.solve_problem()
+
+if __name__ == "__main__":
+    gravity_flow = GravityDrivenFlowProblem(25)
+    gravity_flow.solve_problem()

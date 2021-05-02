@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
+import dolfin as dlfn
+dlfn.set_log_level(40)
+
 from navier_stokes_problem import StationaryNavierStokesProblem, VelocityBCType
 from grid_generator import hyper_cube, HyperCubeBoundaryMarkers
 
@@ -24,6 +28,7 @@ class CavityProblem(StationaryNavierStokesProblem):
                 (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.bottom.value, None),
                 (VelocityBCType.constant, HyperCubeBoundaryMarkers.top.value, (1.0, 0.0)))
         self._bcs = {"velocity": velocity_bcs}
-        
-cf = CavityProblem(100)
-cf.solve_problem()
+
+if __name__ == "__main__":
+    cavity_flow = CavityProblem(25)
+    cavity_flow.solve_problem()

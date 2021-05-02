@@ -195,18 +195,28 @@ class StationaryNavierStokesProblem():
 
         try:
             # solve problem
-            dlfn.info("Solving problem with Re = {0:.2f} and Fr = {1:0.2f}".format(self._Re, self._Fr))
+            if self._Fr is not None:
+                dlfn.info("Solving problem with Re = {0:.2f} and Fr = {1:0.2f}".format(self._Re, self._Fr))
+            else:
+                dlfn.info("Solving problem with Re = {0:.2f}".format(self._Re))
             self._navier_stokes_solver.solve()
         except:
-            dlfn.info("Solving problem for Re = {0:.2f} and Fr = {1:0.2f} without ".format(self._Re, self._Fr) +
-                      "suitable initial guess failed.")
-            dlfn.info("Solving problem with parameter continuation...")
+            if self._Fr is not None:
+                dlfn.info("Solving problem for Re = {0:.2f} and Fr = {1:0.2f} without ".format(self._Re, self._Fr) +
+                          "suitable initial guess failed.")
+            else:
+                dlfn.info("Solving problem for Re = {0:.2f} without ".format(self._Re) +
+                          "suitable initial guess failed.")
             # parameter continuation
+            dlfn.info("Solving problem with parameter continuation...")
             for Re in np.logspace(0.0, np.log10(self._Re), num=10, endpoint=True):
                 # pass dimensionless numbers
                 self._navier_stokes_solver.set_dimensionless_numbers(Re, self._Fr)
                 # solve problem
-                dlfn.info("Solving problem with Re = {0:.2f} and Fr = {1:0.2f}".format(Re, self._Fr))
+                if self._Fr is not None:
+                    dlfn.info("Solving problem with Re = {0:.2f} and Fr = {1:0.2f}".format(self._Re, self._Fr))
+                else:
+                    dlfn.info("Solving problem with Re = {0:.2f}".format(self._Re))
                 self._navier_stokes_solver.solve()
 
         # write XDMF-files
