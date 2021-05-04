@@ -5,6 +5,8 @@ from os import path
 
 import dolfin as dlfn
 
+import numpy as np
+
 from navier_stokes_solver import VelocityBCType, PressureBCType, TractionBCType
 
 from navier_stokes_solver import StationaryNavierStokesSolver as Solver
@@ -177,7 +179,9 @@ class StationaryNavierStokesProblem():
         
         # create solver object
         if not hasattr(self, "_navier_stokes_solver"):
-            self._navier_stokes_solver =  Solver(self._mesh, self._boundary_markers)
+            self._navier_stokes_solver =  Solver(self._mesh, self._boundary_markers,
+                                                 self._tol, self._maxiter,
+                                                 self._tol_picard, self._maxiter_picard)
         
         # pass boundary conditions
         self._navier_stokes_solver.set_boundary_conditions(self._bcs)
@@ -188,9 +192,32 @@ class StationaryNavierStokesProblem():
         # pass body force
         if hasattr(self, "_body_force"):
             self._navier_stokes_solver.set_body_force(self._body_force)
-        
-        # solve problem
-        self._navier_stokes_solver.solve()
-        
+
+        try:
+            # solve problem
+            if self._Fr is not None:
+                dlfn.info("Solving problem with Re = {0:.2f} and Fr = {1:0.2f}".format(self._Re, self._Fr))
+            else:
+                dlfn.info("Solving problem with Re = {0:.2f}".format(self._Re))
+            self._navier_stokes_solver.solve()
+        except:
+            if self._Fr is not None:
+                dlfn.info("Solving problem for Re = {0:.2f} and Fr = {1:0.2f} without ".format(self._Re, self._Fr) +
+                          "suitable initial guess failed.")
+            else:
+                dlfn.info("Solving problem for Re = {0:.2f} without ".format(self._Re) +
+                          "suitable initial guess failed.")
+            # parameter continuation
+            dlfn.info("Solving problem with parameter continuation...")
+            for Re in np.logspace(0.0, np.log10(self._Re), num=10, endpoint=True):
+                # pass dimensionless numbers
+                self._navier_stokes_solver.set_dimensionless_numbers(Re, self._Fr)
+                # solve problem
+                if self._Fr is not None:
+                    dlfn.info("Solving problem with Re = {0:.2f} and Fr = {1:0.2f}".format(self._Re, self._Fr))
+                else:
+                    dlfn.info("Solving problem with Re = {0:.2f}".format(self._Re))
+                self._navier_stokes_solver.solve()
+
         # write XDMF-files
         self._write_xdmf_file()

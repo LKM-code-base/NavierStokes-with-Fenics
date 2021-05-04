@@ -5,7 +5,7 @@ from dolfin import SystemAssembler
 
 class CustomNonlinearProblem(NonlinearProblem):
     """Class for interfacing with not only :py:class:`NewtonSolver`."""
-    def __init__(self, F, bcs, J, J_pc=None):
+    def __init__(self, F, bcs, J):
         """Return subclass of :py:class:`dolfin.NonlinearProblem` suitable
         for :py:class:`NewtonSolver` based on
         :py:class:`field_split.BlockPETScKrylovSolver` and PCD
@@ -17,11 +17,7 @@ class CustomNonlinearProblem(NonlinearProblem):
             bcs (:py:class:`list` of :py:class:`dolfin.DirichletBC`)
                 Boundary conditions applied to ``F``, ``J``, and ``J_pc``.
             J (:py:class:`dolfin.Form` or :py:class:`ufl.Form`)
-                Bilinear form representing system Jacobian for Newton iteration.
-            J_pc (:py:class:`dolfin.Form` or :py:class:`ufl.Form`)
-                Bilinear form representing Jacobian optionally passed to
-                preconditioner instead of ``J``. In case of Navier-Stokes, 
-                stabilized (0,0)-block can be passed to (0,0)-KSP solver.
+                Bilinear form representing system Jacobian for the iteration.
 
         All the arguments should be given on the common mixed function space.
         """
@@ -29,12 +25,6 @@ class CustomNonlinearProblem(NonlinearProblem):
 
         # assembler for Newton/Picard system
         self.assembler = SystemAssembler(J, F, bcs)
-
-        # assembler for preconditioner of (0,0)-block
-        if J_pc is not None:
-            self.assembler_pc = SystemAssembler(J_pc, F, bcs)
-        else:
-            self.assembler_pc = None
 
         # store forms/bcs for later
         self.forms = {
@@ -46,7 +36,7 @@ class CustomNonlinearProblem(NonlinearProblem):
     def get_form(self, key):
         form = self.forms.get(key)
         if form is None:
-            raise AttributeError("Form '%s' requested by preconditioner not available" % key)
+            raise AttributeError("Form '%s' requested by NonlinearProblem not available" % key)
         return form
 
     def function_space(self):

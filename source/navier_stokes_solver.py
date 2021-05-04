@@ -4,6 +4,8 @@ from enum import Enum, auto
 
 import numpy as np
 
+import math
+
 import dolfin as dlfn
 from dolfin import grad, div, dot, inner
 
@@ -208,6 +210,7 @@ class StationaryNavierStokesSolver():
                     continue
                 else: 
                     raise NotImplementedError()
+
         # traction boundary conditions
         if "traction" in self._bcs:
             self._traction_bcs = dict()
@@ -274,7 +277,7 @@ class StationaryNavierStokesSolver():
         if self._apply_body_force is True:
             assert hasattr(self, "_Fr"), "Froude number is not specified."
             assert hasattr(self, "_body_force"), "Body force is not specified."
-            F_momentum += dot(self._body_force, w) * dV
+            F_momentum -= dot(self._body_force, w) * dV
         # add boundary tractions
         if hasattr(self, "traction_bcs"):
             for bndry_id, traction in self._traction_bcs.items():
@@ -420,11 +423,15 @@ class StationaryNavierStokesSolver():
                 self._Fr = dlfn.Constant(Fr)
             else:
                 self._Fr.assign(Fr)
-    
+
     @property
     def sub_space_association(self):
         return self._sub_space_association
-    
+
+    @property
+    def field_association(self):
+        return self._field_association
+
     @property 
     def solution(self):
         return self._solution
@@ -452,12 +459,24 @@ class StationaryNavierStokesSolver():
         Solves the nonlinear problem.
         """
         # setup problem        
-        if not all(hasattr(self, attr) for attr in ("_solver",
+        if not all(hasattr(self, attr) for attr in ("_nonlinear_solver",
                                                     "_picard_problem", 
                                                     "_newton_problem",
-                                                    "_sol")):
+                                                    "_solution")):
             self._setup_problem()
-    
+
+        # compute initial residual
+        residual_vector = dlfn.Vector(self._solution.vector())
+        self._picard_problem.F(residual_vector, self._solution.vector())
+        residual = residual_vector.norm("l2")
+
+        # correct initial tolerance if necessary
+        if residual < self._tol_picard:
+            # determine order of magnitude
+            order = math.floor(math.log10(residual))
+            # specify corrected tolerance
+            self._tol_picard = (residual / 10.0**order - 1.0) * 10.0**order
+
         # Picard iteration
         dlfn.info("Starting Picard iteration...")
         self._nonlinear_solver.parameters["maximum_iterations"] = self._maxiter_picard
