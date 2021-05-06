@@ -105,6 +105,7 @@ class StationaryNavierStokesProblem():
         assert hasattr(self, "_navier_stokes_solver")
         solver = self._navier_stokes_solver
         solution = solver.solution
+        
         # serialize
         with dlfn.XDMFFile(fname) as results_file:
             results_file.parameters["flush_output"] = True
@@ -113,6 +114,33 @@ class StationaryNavierStokesProblem():
             for index, name in solver.sub_space_association.items():
                 solution_components[index].rename(name, "")
                 results_file.write(solution_components[index], 0.)
+            vorticity = self._compute_vorticity()
+            results_file.write(vorticity, 0.)
+    
+    def _compute_vorticity(self):
+        velocity = self._get_velocity()
+        
+        family = velocity.ufl_element().family()
+        assert family == "Lagrange"
+        degree = velocity.ufl_element().degree()
+        assert degree > 0
+        
+        cell = self._mesh.ufl_cell()
+        if self._space_dim == 2:
+            elemOmega = dlfn.FiniteElement("DG", cell, degree - 1)
+            Wh = dlfn.FunctionSpace(self._mesh, elemOmega)
+            velocity_curl = dlfn.curl(velocity)
+            vorticity = dlfn.project(velocity_curl, Wh)
+            vorticity.rename("vorticity", "")
+            return vorticity
+        elif self._space_dim == 3:
+            elemOmega = dlfn.VectorElement("DG", cell, degree - 1)
+            Wh = dlfn.FunctionSpace(self._mesh, elemOmega)
+            vorticity = dlfn.project(velocity_curl, Wh)
+            vorticity.rename("vorticity", "")
+            return vorticity
+        else:
+            raise RuntimeError()
                 
     def set_parameters(self, Re = 1.0, Fr = None):
         """
@@ -141,6 +169,25 @@ class StationaryNavierStokesProblem():
         
     def set_body_force(self):
         pass
+    
+    def postprocess_solution(self):
+        pass
+    
+    def _get_velocity(self):
+        assert hasattr(self, "_navier_stokes_solver")
+        solver = self._navier_stokes_solver
+        solution = solver.solution
+        solution_components = solution.split()
+        index = solver.field_association["velocity"]
+        return solution_components[index]
+
+    def _get_pressure(self):
+        assert hasattr(self, "_navier_stokes_solver")
+        solver = self._navier_stokes_solver
+        solution = solver.solution
+        solution_components = solution.split()
+        index = solver.field_association["pressure"]
+        return solution_components[index]
     
     def write_boundary_markers(self):
         assert hasattr(self, "_boundary_markers")
@@ -214,10 +261,13 @@ class StationaryNavierStokesProblem():
                 self._navier_stokes_solver.set_dimensionless_numbers(Re, self._Fr)
                 # solve problem
                 if self._Fr is not None:
-                    dlfn.info("Solving problem with Re = {0:.2f} and Fr = {1:0.2f}".format(self._Re, self._Fr))
+                    dlfn.info("Solving problem with Re = {0:.2f} and Fr = {1:0.2f}".format(Re, self._Fr))
                 else:
-                    dlfn.info("Solving problem with Re = {0:.2f}".format(self._Re))
+                    dlfn.info("Solving problem with Re = {0:.2f}".format(Re))
                 self._navier_stokes_solver.solve()
+        
+        # postprocess solution
+        self.postprocess_solution()
 
         # write XDMF-files
         self._write_xdmf_file()
