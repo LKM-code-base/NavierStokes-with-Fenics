@@ -139,8 +139,27 @@ class StationaryNavierStokesProblem():
     def set_boundary_conditions(self):
         raise NotImplementedError()
         
+    def postprocess_solution(self):
+        raise NotImplementedError()
+        
     def set_body_force(self):
         pass
+    
+    def get_velocity(self):
+        assert hasattr(self, "_navier_stokes_solver")
+        solver = self._navier_stokes_solver
+        solution = solver.solution
+        solution_components = solution.split()
+        index = solver.field_association["velocity"]
+        return solution_components[index]
+
+    def get_pressure(self):
+        assert hasattr(self, "_navier_stokes_solver")
+        solver = self._navier_stokes_solver
+        solution = solver.solution
+        solution_components = solution.split()
+        index = solver.field_association["pressure"]
+        return solution_components[index]
     
     def write_boundary_markers(self):
         assert hasattr(self, "_boundary_markers")
@@ -214,9 +233,9 @@ class StationaryNavierStokesProblem():
                 self._navier_stokes_solver.set_dimensionless_numbers(Re, self._Fr)
                 # solve problem
                 if self._Fr is not None:
-                    dlfn.info("Solving problem with Re = {0:.2f} and Fr = {1:0.2f}".format(self._Re, self._Fr))
+                    dlfn.info("Solving problem with Re = {0:.2f} and Fr = {1:0.2f}".format(Re, self._Fr))
                 else:
-                    dlfn.info("Solving problem with Re = {0:.2f}".format(self._Re))
+                    dlfn.info("Solving problem with Re = {0:.2f}".format(Re))
                 self._navier_stokes_solver.solve()
 
         # write XDMF-files

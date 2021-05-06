@@ -2,11 +2,13 @@
 # -*- coding: utf-8 -*-
 
 import dolfin as dlfn
-dlfn.set_log_level(40)
+dlfn.set_log_level(20)
 
 from navier_stokes_problem import StationaryNavierStokesProblem, VelocityBCType
 
 from grid_generator import open_hyper_cube, HyperCubeBoundaryMarkers
+
+import dolfin as dlfn
 
 class GravityDrivenFlowProblem(StationaryNavierStokesProblem):
     def __init__(self, n_points, main_dir = None):
@@ -34,10 +36,22 @@ class GravityDrivenFlowProblem(StationaryNavierStokesProblem):
                 (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.right.value, None),
                 (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.bottom.value, None))
         self._bcs = {"velocity": velocity_bcs}
+        
+#    def postprocess_solution(self):
     
     def set_body_force(self):
         self._body_force = dlfn.Constant((0.0, -1.0))
 
 if __name__ == "__main__":
-    gravity_flow = GravityDrivenFlowProblem(25)
+    gravity_flow = GravityDrivenFlowProblem(50)
     gravity_flow.solve_problem()
+    pressure = gravity_flow.get_pressure()
+    velocity = gravity_flow.get_velocity()
+    position_vector = dlfn.Expression(("x[0]", "x[1]"), degree=1)
+    potential_energy = dlfn.dot(dlfn.Constant((0.0, -1.0)), position_vector)
+    Phi = 0.5 * dlfn.dot(velocity, velocity) + pressure + potential_energy
+    
+#    Vh = dlfn.FunctionSpace(mesh, "CG", 1)
+#    Phi_h = dlfn.project(Phi, Vh)
+#    value = Phi_h[dlfn.Point(0.2, 0.2)]
+    
