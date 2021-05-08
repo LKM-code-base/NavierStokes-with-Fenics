@@ -3,7 +3,9 @@
 
 import dolfin as dlfn
 
-from navier_stokes_problem import StationaryNavierStokesProblem, VelocityBCType
+from navier_stokes_problem import StationaryNavierStokesProblem
+
+from navier_stokes_solver import VelocityBCType
 
 from grid_generator import open_hyper_cube, HyperCubeBoundaryMarkers
 

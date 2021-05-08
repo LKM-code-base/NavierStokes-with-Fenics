@@ -3,7 +3,10 @@
 
 import dolfin as dlfn
 
-from navier_stokes_problem import StationaryNavierStokesProblem, VelocityBCType
+from navier_stokes_problem import StationaryNavierStokesProblem
+
+from navier_stokes_solver import VelocityBCType
+
 from grid_generator import hyper_cube, HyperCubeBoundaryMarkers
 
 dlfn.set_log_level(40)
