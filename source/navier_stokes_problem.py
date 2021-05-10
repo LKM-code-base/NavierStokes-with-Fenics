@@ -56,6 +56,11 @@ class StationaryNavierStokesProblem():
         q_deg = self._p_deg + 2
         dlfn.parameters["form_compiler"]["quadrature_degree"] = q_deg
 
+    def _add_to_field_output(self, field):
+        if not hasattr(self, "_additional_field_output"):
+            self._additional_field_output = []
+        self._additional_field_output.append(field)
+
     def _get_filename(self):
         """
         Class method returning a filename for the given set of parameters.
@@ -113,6 +118,9 @@ class StationaryNavierStokesProblem():
                 results_file.write(solution_components[index], 0.)
             vorticity = self._compute_vorticity()
             results_file.write(vorticity, 0.)
+            if hasattr(self, "_additional_field_output"):
+                for field in self._additional_field_output:
+                    results_file.write(field, 0.)
 
     def _compute_vorticity(self):
         velocity = self._get_velocity()
@@ -138,6 +146,22 @@ class StationaryNavierStokesProblem():
             return vorticity
         else:
             raise RuntimeError()
+
+    def _compute_pressure_gradient(self):
+        pressure = self._get_pressure()
+
+        family = pressure.ufl_element().family()
+        assert family == "Lagrange"
+        degree = pressure.ufl_element().degree()
+        assert degree >= 0
+
+        cell = self._mesh.ufl_cell()
+        elemGradP = dlfn.VectorElement("DG", cell, degree - 1)
+        Wh = dlfn.FunctionSpace(self._mesh, elemGradP)
+        pressure_gradient = dlfn.project(dlfn.grad(pressure), Wh)
+        pressure_gradient.rename("pressure gradient", "")
+
+        return pressure_gradient
 
     def set_parameters(self, Re=1.0, Fr=None):
         """

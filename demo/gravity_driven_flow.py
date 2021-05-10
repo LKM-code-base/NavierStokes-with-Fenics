@@ -45,18 +45,23 @@ class GravityDrivenFlowProblem(StationaryNavierStokesProblem):
     def postprocess_solution(self):
         pressure = self._get_pressure()
         velocity = self._get_velocity()
-
+        # compute potential energy
         strings = tuple("x[{0:d}]".format(i) for i in range(self._space_dim))
         position_vector = dlfn.Expression(strings, degree=1)
-
         potential_energy = dlfn.dot(self._body_force, position_vector)
-
+        # compute Bernoulli potential
         Phi = dlfn.Constant(0.5) * dlfn.dot(velocity, velocity)
         Phi += pressure + potential_energy / dlfn.Constant(self._Fr)**2
-
+        # project on Bernoulli potential on the mesh
         Vh = dlfn.FunctionSpace(self._mesh, "CG", 1)
         phi = dlfn.project(Phi, Vh)
         phi.rename("Bernoulli potential", "")
+        # add Bernoulli potential to the field output
+        self._add_to_field_output(phi)
+        # add pressure gradient to the field output
+        self._add_to_field_output(self._compute_pressure_gradient())
+        # add vorticity to the field output
+        self._add_to_field_output(self._compute_vorticity())
 
     def set_body_force(self):
         self._body_force = dlfn.Constant((0.0, -1.0))
