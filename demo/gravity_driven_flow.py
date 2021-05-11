@@ -9,7 +9,7 @@ from navier_stokes_solver import VelocityBCType
 
 from grid_generator import open_hyper_cube, HyperCubeBoundaryMarkers
 
-dlfn.set_log_level(20)
+dlfn.set_log_level(40)
 
 
 class GravityDrivenFlowProblem(StationaryNavierStokesProblem):
