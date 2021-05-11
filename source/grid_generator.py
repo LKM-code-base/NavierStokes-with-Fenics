@@ -67,6 +67,9 @@ class CircularBoundary(dlfn.SubDomain):
 
 
 def spherical_shell(dim, radii, n_refinements=0):
+    """
+    Creates the mesh of a spherical shell using the mshr module.
+    """
     assert isinstance(dim, int)
     assert dim == 2 or dim == 3
 
@@ -298,6 +301,10 @@ def open_hyper_cube(dim, n_points=10, openings=None):
 
 
 def converging_diverging_pipe():
+    """
+    Generates the mesh of converging-diverging pipe from the gmsh-file
+    `converging_diverging_pipe.geo`.
+    """
     # define location of gmsh files
     geo_file = path.join(os.getcwd(), "gmsh", "converging_diverging_pipe.geo")
     assert path.exists(geo_file)

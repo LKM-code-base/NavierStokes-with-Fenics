@@ -39,7 +39,8 @@ class GravityDrivenFlowProblem(StationaryNavierStokesProblem):
         velocity_bcs = (
                 (no_slip, BoundaryMarkers.left.value, None),
                 (no_slip, BoundaryMarkers.right.value, None),
-                (no_slip, BoundaryMarkers.bottom.value, None))
+                (no_slip, BoundaryMarkers.bottom.value, None),
+                (no_slip, BoundaryMarkers.top.value, None))
         self._bcs = {"velocity": velocity_bcs}
 
     def postprocess_solution(self):
@@ -62,6 +63,8 @@ class GravityDrivenFlowProblem(StationaryNavierStokesProblem):
         self._add_to_field_output(self._compute_pressure_gradient())
         # add vorticity to the field output
         self._add_to_field_output(self._compute_vorticity())
+        # add stream potential to the field output
+        self._add_to_field_output(self._compute_stream_potential())
 
     def set_body_force(self):
         self._body_force = dlfn.Constant((0.0, -1.0))

@@ -44,26 +44,33 @@ def boundary_normal(mesh, facet_markers, bndry_id):
         1. the facet normal vectors are co-linear
         2. the vector connecting two face midpoints is tangential to both
            normal vectors.
+
+    Returns a tuple of float representing the normal.
     """
     tol = 1.0e3 * dlfn.DOLFIN_EPS
     normal_vectors = []
     midpoints = []
     for f in dlfn.facets(mesh):
-        if f.exterior():
-            if facet_markers[f] == bndry_id:
-                current_normal = f.normal()
-                current_midpoint = f.midpoint()
-                for normal, midpoint in zip(normal_vectors, midpoints):
-                    assert current_normal.dot(normal) > 0.0
-                    if abs(current_normal.dot(normal) - 1.0) > tol:
-                        raise ValueError("Boundary facets do not share common normal.")
-                    midpoint_connection = midpoint - current_midpoint
-                    if abs(midpoint_connection.dot(normal)) > tol:
-                        raise ValueError("Midpoint connection vector is not tangential to boundary facets.")
-                    if abs(midpoint_connection.dot(current_normal)) > tol:
-                        raise ValueError("Midpoint connection vector is not tangential to boundary facets.")
-                normal_vectors.append(current_normal)
-                midpoints.append(midpoint)
+        if f.exterior() and facet_markers[f] == bndry_id:
+            current_normal = f.normal()
+            current_midpoint = f.midpoint()
+            for normal, midpoint in zip(normal_vectors, midpoints):
+                # check that normal vectors point in the same direction
+                assert current_normal.dot(normal) > 0.0
+                # check that normal vector are parallel
+                if abs(current_normal.dot(normal) - 1.0) > tol:
+                    raise ValueError("Boundary facets do not share common normal.")
+                # compute a tangential vector as connection vector of two
+                # midpoints
+                midpoint_connection = midpoint - current_midpoint
+                # check that tangential vector is orthogonal to both normal
+                # vectors
+                if abs(midpoint_connection.dot(normal)) > tol:
+                    raise ValueError("Midpoint connection vector is not tangential to boundary facets.")
+                if abs(midpoint_connection.dot(current_normal)) > tol:
+                    raise ValueError("Midpoint connection vector is not tangential to boundary facets.")
+            normal_vectors.append(current_normal)
+            midpoints.append(midpoint)
 
     dim = mesh.topology().dim()
     normal = normal_vectors[0]
@@ -152,19 +159,24 @@ class StationaryNavierStokesSolver():
         velocity_space = self._Wh.sub(self._field_association["velocity"])
         velocity_bcs = self._bcs["velocity"]
         for bc_type, bc_bndry_id, bc_value in velocity_bcs:
+
             if bc_type is VelocityBCType.no_slip:
                 bc_object = dlfn.DirichletBC(velocity_space, self._null_vector,
                                              self._boundary_markers, bc_bndry_id)
                 self._dirichlet_bcs.append(bc_object)
+
             elif bc_type is VelocityBCType.constant:
                 const_function = dlfn.Constant(bc_value)
                 bc_object = dlfn.DirichletBC(velocity_space, const_function,
                                              self._boundary_markers, bc_bndry_id)
                 self._dirichlet_bcs.append(bc_object)
+
             elif bc_type is VelocityBCType.function:
                 bc_object = dlfn.DirichletBC(velocity_space, bc_value,
                                              self._boundary_markers, bc_bndry_id)
                 self._dirichlet_bcs.append(bc_object)
+
+            # TODO: requires testing
             elif bc_type is VelocityBCType.no_normal_flux:
                 # extract normal vector
                 bndry_normal = boundary_normal(self._mesh, self._boundary_markers, bc_bndry_id)
@@ -179,6 +191,8 @@ class StationaryNavierStokesSolver():
                 bc_object = dlfn.DirichletBC(velocity_space.sub(normal_direction), self._null_scalar,
                                              self._boundary_markers, bc_bndry_id)
                 self._dirichlet_bcs.append(bc_object)
+
+            # TODO: requires testing
             elif bc_type is VelocityBCType.no_tangential_flux:
                 # extract normal vector
                 bndry_normal = boundary_normal(self._mesh, self._boundary_markers, bc_bndry_id)
@@ -195,6 +209,7 @@ class StationaryNavierStokesSolver():
                         bc_object = dlfn.DirichletBC(velocity_space.sub(d), self._null_scalar,
                                                      self._boundary_markers, bc_bndry_id)
                         self._dirichlet_bcs.append(bc_object)
+
             else:
                 raise NotImplementedError()
         # pressure part
@@ -264,14 +279,15 @@ class StationaryNavierStokesSolver():
 
         # viscous operator
         if hasattr(self, "_traction_bs"):
-            a = lambda phi, psi: inner(grad(phi), grad(psi))
+            def a(phi, psi): return inner(grad(phi), grad(psi))
         else:
-            a = lambda phi, psi: dlfn.Constant(0.5) *\
-                inner(grad(phi) + grad(phi).T, grad(psi) + grad(psi).T)
+            def a(phi, psi):
+                return dlfn.Constant(0.5) * inner(grad(phi) + grad(phi).T,
+                                                  grad(psi) + grad(psi).T)
         # divergence operator
-        b = lambda phi, psi: inner(div(phi), psi)
+        def b(phi, psi): return inner(div(phi), psi)
         # non-linear convection operator
-        c = lambda phi, chi, psi: dot(dot(grad(chi), phi), psi)
+        def c(phi, chi, psi): return dot(dot(grad(chi), phi), psi)
 
         # weak forms
         # mass balance
@@ -494,3 +510,8 @@ class StationaryNavierStokesSolver():
         self._nonlinear_solver.parameters["maximum_iterations"] = self._maxiter
         self._nonlinear_solver.parameters["error_on_nonconvergence"] = False
         self._nonlinear_solver.solve(self._newton_problem, self._solution.vector())
+
+        # check residual
+        self._newton_problem.F(residual_vector, self._solution.vector())
+        residual = residual_vector.norm("l2")
+        assert residual <= self._tol, "Newton iteration did not converge."
