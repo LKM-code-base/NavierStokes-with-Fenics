@@ -244,6 +244,7 @@ class StationaryNavierStokesProblem():
 
         # potential of the flow
         stream_potential = dlfn.Function(Wh)
+        stream_potential.rename("velocity potential", "")
 
         # solve problem
         dlfn.solve(lhs == rhs, stream_potential, dirichlet_bcs)

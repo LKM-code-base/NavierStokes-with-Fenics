@@ -9,7 +9,7 @@ from navier_stokes_solver import VelocityBCType
 
 from grid_generator import open_hyper_cube, HyperCubeBoundaryMarkers
 
-dlfn.set_log_level(40)
+dlfn.set_log_level(20)
 
 
 class GravityDrivenFlowProblem(StationaryNavierStokesProblem):
@@ -65,6 +65,12 @@ class GravityDrivenFlowProblem(StationaryNavierStokesProblem):
         self._add_to_field_output(self._compute_vorticity())
         # add stream potential to the field output
         self._add_to_field_output(self._compute_stream_potential())
+        
+        # compute mass flux over the entire boundary
+        normal = dlfn.FacetNormal(self._mesh)
+        dA = dlfn.Measure("ds", domain=self._mesh, subdomain_data=self._boundary_markers)
+        mass_flux = dlfn.assemble(dlfn.dot(normal, velocity) * dA)
+        dlfn.info("Value of the total mass flux: {0:6.2e}".format(mass_flux))
 
     def set_body_force(self):
         self._body_force = dlfn.Constant((0.0, -1.0))
