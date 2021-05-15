@@ -69,3 +69,8 @@ def test_cavity():
 def test_gravity_driven_flow():
     gravity_flow = GravityDrivenFlowProblem(25)
     gravity_flow.solve_problem()
+
+
+if __name__ == "__main__":
+    test_cavity()
+    test_gravity_driven_flow()
