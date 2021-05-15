@@ -9,7 +9,7 @@ def compare_tuples(a, b):
 
 def test_boundary_normal():
     # two-dimensional case
-    mesh, boundary_markers = hyper_cube(2, 10)
+    mesh, boundary_markers = hyper_cube(2, 8)
 
     normal_vectors = [(-1.0, 0.0), (1.0, 0.0),
                       (0.0, -1.0), (0.0, 1.0)]
@@ -23,7 +23,7 @@ def test_boundary_normal():
         compare_tuples(normal, computed_normal)
 
     # three-dimensional case
-    mesh, boundary_markers = hyper_cube(3, 10)
+    mesh, boundary_markers = hyper_cube(3, 8)
 
     normal_vectors = [(-1.0, 0.0, 0.0), (1.0, 0.0, 0.0),
                       (0.0, -1.0, 0.0), (0.0, 1.0, 0.0),
