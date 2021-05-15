@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
+
 def calculate_next_time(current_time, step_size, end_time):
     """
     Returns the next time which is computed based on the step size and the

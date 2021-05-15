@@ -6,6 +6,7 @@ from imex_time_stepping import IMEXTimeStepping, IMEXType
 def compare_lists(a, b):
     assert a == b, "The list {0} is not equal to the list {1}".format(a, b)
 
+
 step_sizes = [1.0, 1.0, 2.0, 2.0, 1.0, 1.0, 1.0]
 
 eta = [[1.0, 0.0],
@@ -19,6 +20,7 @@ assert len(eta) == len(step_sizes)
 
 coefficients_changed = [True, True, True, True, True, True, False]
 assert len(coefficients_changed) == len(step_sizes)
+
 
 def time_loop(time_stepping, alpha, beta, gamma):
     # simple time loop
@@ -97,6 +99,7 @@ def test_SBDF2():
     assert len(gamma) == len(step_sizes)
 
     time_loop(time_stepping, alpha, beta, gamma)
+
 
 def test_CNAB():
     time_stepping = IMEXTimeStepping(0.0, 9.0, IMEXType.CNAB)
