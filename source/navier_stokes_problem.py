@@ -12,33 +12,9 @@ from navier_stokes_solver import StationaryNavierStokesSolver as Solver
 
 from navier_stokes_solver import VelocityBCType
 
+class ProblemBase:
 
-class StationaryNavierStokesProblem():
-    """
-    Class to simulate stationary fluid flow using the `StationaryNavierStokesSolve`.
-
-    Parameters
-    ----------
-    main_dir: str (optional)
-        Directory to save the results.
-    tol: float (optional)
-        Final tolerance .
-    maxiter: int (optional)
-        Maximum number of iterations in total.
-    tol_picard: float (optional)
-        Tolerance for the Picard iteration.
-    maxiter_picard: int (optional)
-        Maximum number of Picard iterations.
-    """
-    def __init__(self, main_dir=None, tol=1e-10, maxiter=50, tol_picard=1e-2,
-                 maxiter_picard=10):
-        """
-        Constructor of the class.
-        """
-        # input check
-        assert all(isinstance(i, int) and i > 0 for i in (maxiter, maxiter_picard))
-        assert all(isinstance(i, float) and i > 0.0 for i in (tol_picard, tol_picard))
-
+    def __init__(self, main_dir=None):
         # set write and read directory
         if main_dir is None:
             self._main_dir = os.getcwd()
@@ -47,19 +23,6 @@ class StationaryNavierStokesProblem():
             assert path.exist(main_dir)
             self._main_dir = main_dir
         self._results_dir = path.join(self._main_dir, "results")
-
-        # set numerical tolerances
-        self._tol_picard = tol_picard
-        self._maxiter_picard = maxiter_picard
-        self._tol = tol
-        self._maxiter = maxiter
-
-        # setting discretization parameters
-        # polynomial degree
-        self._p_deg = 1
-        # quadrature degree
-        q_deg = self._p_deg + 2
-        dlfn.parameters["form_compiler"]["quadrature_degree"] = q_deg
 
     def _add_to_field_output(self, field):
         """
@@ -70,70 +33,19 @@ class StationaryNavierStokesProblem():
             self._additional_field_output = []
         self._additional_field_output.append(field)
 
-    def _get_filename(self):
+    def _collect_boundary_markers(self):
         """
-        Class method returning a filename for the given set of parameters.
-
-        The method also updates the parameter file.
-
-        Parameters
-        ----------
-        Re : float
-            Kinetic Reynolds numbers.
-        Fr : float (optional)
-            Froude number.
-        suffix : str (optional)
-            Opitonal filename extension.
-
-        Returns
-        ----------
-        fname : str
-            filename
+        Store all boundary markers specified in the MeshFunction
+        `self._boundary_markers` inside a set.
         """
-        # input check
-        assert hasattr(self, "_Re")
-        assert hasattr(self, "_problem_name")
-        problem_name = self._problem_name
-        suffix = ".xdmf"
+        assert hasattr(self, "_mesh")
+        assert hasattr(self, "_boundary_markers")
 
-        fname = problem_name + "_Re" + "{0:01.4e}".format(self._Re)
-        if hasattr(self, "_Fr") and self._Fr is not None:
-            fname += "_Fr" + "{0:01.4e}".format(self._Fr)
-        fname += suffix
+        self._boundary_marker_set = set()
 
-        return path.join(self._results_dir, fname)
-
-    def _write_xdmf_file(self):
-        """
-        Write the output to an xdmf file. The solution and additional fields
-        are output to the file.
-        """
-        # get filename
-        fname = self._get_filename()
-        assert fname.endswith(".xdmf")
-
-        # create results directory
-        assert hasattr(self, "_results_dir")
-        if not path.exists(self._results_dir):
-            os.makedirs(self._results_dir)
-
-        assert hasattr(self, "_navier_stokes_solver")
-        solver = self._navier_stokes_solver
-        solution = solver.solution
-
-        # serialize
-        with dlfn.XDMFFile(fname) as results_file:
-            results_file.parameters["flush_output"] = True
-            results_file.parameters["functions_share_mesh"] = True
-            solution_components = solution.split()
-            for index, name in solver.sub_space_association.items():
-                solution_components[index].rename(name, "")
-                results_file.write(solution_components[index], 0.)
-            vorticity = self._compute_vorticity()
-            results_file.write(vorticity, 0.)
-            if hasattr(self, "_additional_field_output"):
-                for field in self._additional_field_output:
-                    results_file.write(field, 0.)
+        for f in dlfn.facets(self._mesh):
+            if f.exterior():
+                self._boundary_marker_set.add(self._boundary_markers[f])
 
     def _compute_vorticity(self):
         """
@@ -191,6 +103,10 @@ class StationaryNavierStokesProblem():
         the velocity field. It is a projection of the actual velocity field
         onto the subspace of irrotional fields.
         """
+        assert hasattr(self, "_mesh")
+        assert hasattr(self, "_boundary_markers")
+        assert hasattr(self, "_boundary_marker_set")
+
         velocity = self._get_velocity()
 
         # create suitable function space
@@ -210,11 +126,11 @@ class StationaryNavierStokesProblem():
         dV = dlfn.Measure("dx", domain=self._mesh)
         dA = dlfn.Measure("ds", domain=self._mesh, subdomain_data=self._boundary_markers)
 
+        # TODO: Implement different boundary conditions
         # extract boundary conditions
         bc_map = self._get_boundary_conditions_map()
         assert VelocityBCType.no_slip in bc_map
 
-        assert hasattr(self, "_boundary_marker_set")
         other_bndry_ids = self._boundary_marker_set.copy()
 
         # apply homogeneous Dirichlet bcs on the potential where a no-slip
@@ -250,20 +166,6 @@ class StationaryNavierStokesProblem():
 
         return stream_potential
 
-    def _collect_boundary_markers(self):
-        """
-        Store all boundary markers specified in the MeshFunction
-        `self._boundary_markers` inside a set.
-        """
-        assert hasattr(self, "_mesh")
-        assert hasattr(self, "_boundary_markers")
-
-        self._boundary_marker_set = set()
-
-        for f in dlfn.facets(self._mesh):
-            if f.exterior():
-                self._boundary_marker_set.add(self._boundary_markers[f])
-
     def _get_boundary_conditions_map(self, field="velocity"):
         """
         Returns a mapping relating the type of the boundary condition to the
@@ -284,6 +186,180 @@ class StationaryNavierStokesProblem():
 
         return bc_map
 
+    def _get_filename(self):
+        """
+        Purely virtual method for setting the filename.
+        """
+        raise NotImplementedError("You are calling a purely virtual method.")
+
+    def _get_pressure(self):
+        """
+        Returns the pressure field.
+        """
+        solver = self._get_solver()
+        solution = solver.solution
+        solution_components = solution.split()
+        index = solver.field_association["pressure"]
+        return solution_components[index]
+
+    def _get_solver(self):
+        """
+        Purely virtual method for getting the solver of the problem.
+        """
+        raise NotImplementedError("You are calling a purely virtual method.")
+
+    def _get_velocity(self):
+        """
+        Returns the velocity field.
+        """
+        solver = self._get_solver()
+        solution = solver.solution
+        solution_components = solution.split()
+        index = solver.field_association["velocity"]
+        return solution_components[index]
+
+    def _write_xdmf_file(self, current_time = 0.0):
+        """
+        Write the output to an xdmf file. The solution and additional fields
+        are output to the file.
+        """
+        assert isinstance(current_time, float)
+
+        # get filename
+        fname = self._get_filename()
+        assert fname.endswith(".xdmf")
+
+        # create results directory
+        assert hasattr(self, "_results_dir")
+        if not path.exists(self._results_dir):
+            os.makedirs(self._results_dir)
+
+        # get solution
+        solver = self._get_solver()
+        solution = solver.solution
+
+        # serialize
+        with dlfn.XDMFFile(fname) as results_file:
+            results_file.parameters["flush_output"] = True
+            results_file.parameters["functions_share_mesh"] = True
+            solution_components = solution.split()
+            for index, name in solver.sub_space_association.items():
+                solution_components[index].rename(name, "")
+                results_file.write(solution_components[index], current_time)
+            if hasattr(self, "_additional_field_output"):
+                for field in self._additional_field_output:
+                    results_file.write(field, current_time)
+    def postprocess_solution(self):
+        """
+        Virtual method for additional post-processing.
+        """
+        pass
+
+    def setup_mesh(self):
+        """
+        Purely virtual method for setting up the mesh of the problem.
+        """
+        raise NotImplementedError("You are calling a purely virtual method.")
+
+    def set_boundary_conditions(self):
+        """
+        Purely virtual method for specifying the boundary conditions of the
+        problem.
+        """
+        raise NotImplementedError("You are calling a purely virtual method.")
+
+    def set_body_force(self):
+        """
+        Virtual method for specifying the body force of the problem.
+        """
+        pass
+
+    def solve_problem(self):
+        """
+        Purely virtual method for solving the problem.
+        """
+        raise NotImplementedError("You are calling a purely virtual method.")
+
+
+
+class StationaryNavierStokesProblem(ProblemBase):
+    """
+    Class to simulate stationary fluid flow using the `StationaryNavierStokesSolve`.
+
+    Parameters
+    ----------
+    main_dir: str (optional)
+        Directory to save the results.
+    tol: float (optional)
+        Final tolerance .
+    maxiter: int (optional)
+        Maximum number of iterations in total.
+    tol_picard: float (optional)
+        Tolerance for the Picard iteration.
+    maxiter_picard: int (optional)
+        Maximum number of Picard iterations.
+    """
+    def __init__(self, main_dir=None, tol=1e-10, maxiter=50, tol_picard=1e-2,
+                 maxiter_picard=10):
+        """
+        Constructor of the class.
+        """
+        super().__init__(main_dir)
+
+        # input check
+        assert all(isinstance(i, int) and i > 0 for i in (maxiter, maxiter_picard))
+        assert all(isinstance(i, float) and i > 0.0 for i in (tol_picard, tol_picard))
+
+        # set numerical tolerances
+        self._tol_picard = tol_picard
+        self._maxiter_picard = maxiter_picard
+        self._tol = tol
+        self._maxiter = maxiter
+
+        # setting discretization parameters
+        # polynomial degree
+        self._p_deg = 1
+        # quadrature degree
+        q_deg = self._p_deg + 2
+        dlfn.parameters["form_compiler"]["quadrature_degree"] = q_deg
+
+    def _get_filename(self):
+        """
+        Class method returning a filename for the given set of parameters.
+
+        The method also updates the parameter file.
+
+        Parameters
+        ----------
+        Re : float
+            Kinetic Reynolds numbers.
+        Fr : float (optional)
+            Froude number.
+        suffix : str (optional)
+            Opitonal filename extension.
+
+        Returns
+        ----------
+        fname : str
+            filename
+        """
+        # input check
+        assert hasattr(self, "_Re")
+        assert hasattr(self, "_problem_name")
+        problem_name = self._problem_name
+        suffix = ".xdmf"
+
+        fname = problem_name + "_Re" + "{0:01.4e}".format(self._Re)
+        if hasattr(self, "_Fr") and self._Fr is not None:
+            fname += "_Fr" + "{0:01.4e}".format(self._Fr)
+        fname += suffix
+
+        return path.join(self._results_dir, fname)
+
+    def _get_solver(self):
+        assert hasattr(self, "_navier_stokes_solver")
+        return self._navier_stokes_solver
+
     def set_parameters(self, Re=1.0, Fr=None):
         """
         Sets up the parameters of the model by creating or modifying class
@@ -302,53 +378,6 @@ class StationaryNavierStokesProblem():
         if Fr is not None:
             assert isinstance(Fr, float) and Fr > 0.0
         self._Fr = Fr
-
-    def setup_mesh(self):
-        """
-        Pure virtual method for setting up the mesh of the problem.
-        """
-        raise NotImplementedError()
-
-    def set_boundary_conditions(self):
-        """
-        Pure virtual method for specifying the boundary conditions of the
-        problem.
-        """
-        raise NotImplementedError()
-
-    def set_body_force(self):
-        """
-        Virtual method for specifying the body force of the problem.
-        """
-        pass
-
-    def postprocess_solution(self):
-        """
-        Virtual method for additional post-processing.
-        """
-        pass
-
-    def _get_velocity(self):
-        """
-        Returns the velocity field.
-        """
-        assert hasattr(self, "_navier_stokes_solver")
-        solver = self._navier_stokes_solver
-        solution = solver.solution
-        solution_components = solution.split()
-        index = solver.field_association["velocity"]
-        return solution_components[index]
-
-    def _get_pressure(self):
-        """
-        Returns the pressure field.
-        """
-        assert hasattr(self, "_navier_stokes_solver")
-        solver = self._navier_stokes_solver
-        solution = solver.solution
-        solution_components = solution.split()
-        index = solver.field_association["pressure"]
-        return solution_components[index]
 
     def write_boundary_markers(self):
         """
