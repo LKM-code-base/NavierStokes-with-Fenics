@@ -83,6 +83,7 @@ dependencies:
   - pybind11-global=2.6.2=py39h1a9c180_0
   - pyparsing=2.4.7=pyhd3eb1b0_0
   - pytest=6.2.3=py39h06a4308_2
+  - pytest-cov 
   - python=3.9.2=hffdb5ce_0_cpython
   - python_abi=3.9=1_cp39
   - readline=8.1=h46c0cb4_0
