@@ -164,7 +164,7 @@ def open_hyper_cube(dim, n_points = 10, openings = None):
     """
     tol = 1.0e3 * dlfn.DOLFIN_EPS
 
-    if openings is None:
+    if openings is None: # pragma: no cover
         return hyper_cube(dim, n_points)
 
     # input check
@@ -284,7 +284,7 @@ def open_hyper_cube(dim, n_points = 10, openings = None):
                                            l_x=width[0], l_y=width[1],
                                            c_x=center[0], c_y=center[1])
             gamma.mark(facet_markers, BoundaryMarkers.opening.value)
-        else:
+        else: # pragma: no cover
             raise RuntimeError()
 
     return mesh, facet_markers

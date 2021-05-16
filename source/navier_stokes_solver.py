@@ -50,12 +50,12 @@ def boundary_normal(mesh, facet_markers, bndry_id):
                 current_midpoint = f.midpoint()
                 for normal, midpoint in zip(normal_vectors, midpoints):
                     assert current_normal.dot(normal) > 0.0
-                    if abs(current_normal.dot(normal) - 1.0) > tol:
+                    if abs(current_normal.dot(normal) - 1.0) > tol: # pragma: no cover
                         raise ValueError("Boundary facets do not share common normal.")
                     midpoint_connection = midpoint - current_midpoint
-                    if abs(midpoint_connection.dot(normal)) > tol:
+                    if abs(midpoint_connection.dot(normal)) > tol: # pragma: no cover
                         raise ValueError("Midpoint connection vector is not tangential to boundary facets.")
-                    if abs(midpoint_connection.dot(current_normal)) > tol:
+                    if abs(midpoint_connection.dot(current_normal)) > tol: # pragma: no cover
                         raise ValueError("Midpoint connection vector is not tangential to boundary facets.")
                 normal_vectors.append(current_normal)
                 midpoints.append(current_midpoint)
@@ -383,7 +383,7 @@ class StationaryNavierStokesSolver():
                     bndry_ids_found[self._boundary_markers[facet]] = True
                     if all(bndry_ids_found.values()):
                         break
-        if not all(bndry_ids_found):
+        if not all(bndry_ids_found): # pragma: no cover
             missing = [key for key, value in bndry_ids_found.items() if value is False]
             message = "Boundary id" + ("s " if len(missing) > 1 else " ")
             message += ", ".join(map(str, missing))
