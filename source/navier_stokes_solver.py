@@ -51,31 +51,32 @@ def boundary_normal(mesh, facet_markers, bndry_id):
     normal_vectors = []
     midpoints = []
     for f in dlfn.facets(mesh):
-        if f.exterior() and facet_markers[f] == bndry_id:
-            current_normal = f.normal()
-            current_midpoint = f.midpoint()
-            for normal, midpoint in zip(normal_vectors, midpoints):
-                # check that normal vectors point in the same direction
-                assert current_normal.dot(normal) > 0.0
-                # check that normal vector are parallel
-                if abs(current_normal.dot(normal) - 1.0) > tol:
-                    raise ValueError("Boundary facets do not share common normal.")
-                # compute a tangential vector as connection vector of two
-                # midpoints
-                midpoint_connection = midpoint - current_midpoint
-                # check that tangential vector is orthogonal to both normal
-                # vectors
-                if abs(midpoint_connection.dot(normal)) > tol:
-                    raise ValueError("Midpoint connection vector is not tangential to boundary facets.")
-                if abs(midpoint_connection.dot(current_normal)) > tol:
-                    raise ValueError("Midpoint connection vector is not tangential to boundary facets.")
-            normal_vectors.append(current_normal)
-            midpoints.append(midpoint)
+        if f.exterior():
+            if facet_markers[f] == bndry_id:
+                current_normal = f.normal()
+                current_midpoint = f.midpoint()
+                for normal, midpoint in zip(normal_vectors, midpoints):
+                    # check that normal vectors point in the same direction
+                    assert current_normal.dot(normal) > 0.0
+                    # check that normal vector are parallel
+                    if abs(current_normal.dot(normal) - 1.0) > tol: # pragma: no cover
+                        raise ValueError("Boundary facets do not share common normal.")
+                    # compute a tangential vector as connection vector of two
+                    # midpoints
+                    midpoint_connection = midpoint - current_midpoint
+                    # check that tangential vector is orthogonal to both normal
+                    # vectors
+                    if abs(midpoint_connection.dot(normal)) > tol: # pragma: no cover
+                        raise ValueError("Midpoint connection vector is not tangential to boundary facets.")
+                    if abs(midpoint_connection.dot(current_normal)) > tol: # pragma: no cover
+                        raise ValueError("Midpoint connection vector is not tangential to boundary facets.")
+                normal_vectors.append(current_normal)
+                midpoints.append(current_midpoint)
 
-    dim = mesh.topology().dim()
+    dim = mesh.geometry().dim()
     normal = normal_vectors[0]
 
-    return (normal[d] for d in range(dim))
+    return tuple(normal[d] for d in range(dim))
 
 
 class StationaryNavierStokesSolver():
@@ -404,7 +405,7 @@ class StationaryNavierStokesSolver():
                     bndry_ids_found[self._boundary_markers[facet]] = True
                     if all(bndry_ids_found.values()):
                         break
-        if not all(bndry_ids_found):
+        if not all(bndry_ids_found): # pragma: no cover
             missing = [key for key, value in bndry_ids_found.items() if value is False]
             message = "Boundary id" + ("s " if len(missing) > 1 else " ")
             message += ", ".join(map(str, missing))

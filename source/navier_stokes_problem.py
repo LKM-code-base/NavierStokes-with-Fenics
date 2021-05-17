@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import os
-
 from os import path
 
 import dolfin as dlfn
 
 import numpy as np
 
-from navier_stokes_solver import StationaryNavierStokesSolver as Solver
-
 from navier_stokes_solver import VelocityBCType
+
+from navier_stokes_solver import PressureBCType
+
+from navier_stokes_solver import TractionBCType
+
+from navier_stokes_solver import StationaryNavierStokesSolver as Solver
 
 
 class StationaryNavierStokesProblem():
@@ -304,13 +307,13 @@ class StationaryNavierStokesProblem():
             assert isinstance(Fr, float) and Fr > 0.0
         self._Fr = Fr
 
-    def setup_mesh(self):
+    def setup_mesh(self): # pragma: no cover
         """
         Pure virtual method for setting up the mesh of the problem.
         """
         raise NotImplementedError()
 
-    def set_boundary_conditions(self):
+    def set_boundary_conditions(self): # pragma: no cover
         """
         Pure virtual method for specifying the boundary conditions of the
         problem.
@@ -323,7 +326,7 @@ class StationaryNavierStokesProblem():
         """
         pass
 
-    def postprocess_solution(self):
+    def postprocess_solution(self): # pragma: no cover
         """
         Virtual method for additional post-processing.
         """
@@ -392,7 +395,7 @@ class StationaryNavierStokesProblem():
         self.set_body_force()
 
         # setup parameters
-        if not hasattr(self, "_Re"):
+        if not hasattr(self, "_Re"): # pragma: no cover
             self.set_parameters()
 
         # create solver object
