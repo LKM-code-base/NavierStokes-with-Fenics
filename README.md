@@ -4,8 +4,21 @@
 
 Files and codes of solving flow problems with FEniCS.
 
+
+ToDo list:
+
+- [ ] add channel flow test (periodic bcs and pressure gradient)
+- [ ] add Couette flow test (component-wise boundary conditions)
+- [ ] add Taylor-Green vortex
+- [ ] add serialization and restart features
+- [ ] simplify specification of boundary conditions
+
+
 Milestones:
-- [ ] stationary lid-driven cavity
-- [ ] stationary gravity-driven pipe flow
+- [x] stationary lid-driven cavity
+- [x] stationary gravity-driven pipe flow
+- [ ] channel flow with periodic boundary conditions
+- [ ] Couette flow
 - [ ] instationary gravity-driven pipe flow
+- [ ] DFG benchmark problem
 - [ ] two-phase flow solver / breaking dam problem
