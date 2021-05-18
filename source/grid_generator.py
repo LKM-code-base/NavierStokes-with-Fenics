@@ -13,11 +13,13 @@ import math
 import dolfin as dlfn
 from mshr import Sphere, Circle, generate_mesh
 
+
 class GeometryType(Enum):
     spherical_annulus = auto()
     rectangle = auto()
     square = auto()
     other = auto()
+
 
 class SphericalAnnulusBoundaryMarkers(Enum):
     """
@@ -25,6 +27,7 @@ class SphericalAnnulusBoundaryMarkers(Enum):
     """
     interior_boundary = auto()
     exterior_boundary = auto()
+
 
 class SymmetricPipeBoundaryMarkers(Enum):
     """
@@ -34,6 +37,7 @@ class SymmetricPipeBoundaryMarkers(Enum):
     symmetry = 101
     inlet = 102
     outlet = 103
+
 
 class HyperCubeBoundaryMarkers(Enum):
     """
@@ -47,6 +51,7 @@ class HyperCubeBoundaryMarkers(Enum):
     front = auto()
     opening = auto()
 
+
 class CircularBoundary(dlfn.SubDomain):
     def __init__(self, **kwargs):
         super().__init__()
@@ -54,13 +59,18 @@ class CircularBoundary(dlfn.SubDomain):
         assert(isinstance(kwargs["radius"], float) and kwargs["radius"] > 0.0)
         self._hmin = kwargs["mesh"].hmin()
         self._radius = kwargs["radius"]
+
     def inside(self, x, on_boundary):
         # tolerance: half length of smallest element
         tol = self._hmin / 2.
         result = abs(math.sqrt(x[0]**2 + x[1]**2) - self._radius) < tol
         return result and on_boundary
 
-def spherical_shell(dim, radii, n_refinements = 0):
+
+def spherical_shell(dim, radii, n_refinements=0):
+    """
+    Creates the mesh of a spherical shell using the mshr module.
+    """
     assert isinstance(dim, int)
     assert dim == 2 or dim == 3
 
@@ -97,14 +107,15 @@ def spherical_shell(dim, radii, n_refinements = 0):
 
     # mark boundaries
     BoundaryMarkers = SphericalAnnulusBoundaryMarkers
-    gamma_inner = CircularBoundary(mesh = mesh, radius = ro)
+    gamma_inner = CircularBoundary(mesh=mesh, radius=ro)
     gamma_inner.mark(facet_marker, BoundaryMarkers.interior_boundary.value)
-    gamma_outer = CircularBoundary(mesh = mesh, radius = ro)
+    gamma_outer = CircularBoundary(mesh=mesh, radius=ro)
     gamma_outer.mark(facet_marker, BoundaryMarkers.exterior_boundary.value)
 
     return mesh, facet_marker
 
-def hyper_cube(dim, n_points = 10):
+
+def hyper_cube(dim, n_points=10):
     assert isinstance(dim, int)
     assert dim == 2 or dim == 3
     assert isinstance(n_points, int) and n_points >= 0
@@ -143,7 +154,8 @@ def hyper_cube(dim, n_points = 10):
 
     return mesh, facet_marker
 
-def open_hyper_cube(dim, n_points = 10, openings = None):
+
+def open_hyper_cube(dim, n_points=10, openings=None):
     """
     Create a hyper cube with openings.
 
@@ -223,19 +235,18 @@ def open_hyper_cube(dim, n_points = 10, openings = None):
                 assert bndry_id == BoundaryMarkers.right.value
                 str_standard_condition = "near(x[0], 1.0) && on_boundary"
             if dim == 2:
-                str_condition =  " && ".join(
+                str_condition = " && ".join(
                         [str_standard_condition,
                          "-l_y / 2.0 <= (x[1] - c_y) <= l_y / 2.0"])
                 gamma = dlfn.CompiledSubDomain(str_condition,
-                                               l_y = width[0], c_y=center[1])
-
+                                               l_y=width[0], c_y=center[1])
             elif dim == 3:
-                str_condition =  " && ".join(
+                str_condition = " && ".join(
                         [str_standard_condition,
                          "-l_y / 2.0 <= (x[1] - c_y) <= l_y / 2.0",
                          "-l_z / 2.0 <= (x[2] - c_z) <= l_z / 2.0"])
                 gamma = dlfn.CompiledSubDomain(str_condition,
-                                               l_y = width[0], l_z=width[1],
+                                               l_y=width[0], l_z=width[1],
                                                c_y=center[1], c_z=center[2])
             gamma.mark(facet_markers, BoundaryMarkers.opening.value)
 
@@ -252,13 +263,13 @@ def open_hyper_cube(dim, n_points = 10, openings = None):
                     "Boundary id {0} does not mactch the expected value {1}".format(bndry_id, BoundaryMarkers.top.value)
                 str_standard_condition = "near(x[1], 1.0) && on_boundary"
             if dim == 2:
-                str_condition =  " && ".join(
+                str_condition = " && ".join(
                         [str_standard_condition,
                          "std::abs(x[0] - c_x) <= (l_x / 2.0)"])
                 gamma = dlfn.CompiledSubDomain(str_condition,
-                                               l_x = width[0], c_x=center[0])
+                                               l_x=width[0], c_x=center[0])
             elif dim == 3:
-                str_condition =  " && ".join(
+                str_condition = " && ".join(
                         [str_standard_condition,
                          "-l_x / 2.0 <= (x[0] - c_x) <= l_x / 2.0",
                          "-l_z / 2.0 <= (x[2] - c_z) <= l_z / 2.0"])
@@ -276,7 +287,7 @@ def open_hyper_cube(dim, n_points = 10, openings = None):
             elif position == "front":
                 assert bndry_id == BoundaryMarkers.front.value
                 str_standard_condition = "near(x[2], 1.0) && on_boundary"
-            str_condition =  " && ".join(
+            str_condition = " && ".join(
                     [str_standard_condition,
                      "-l_x / 2.0 <= (x[0] - c_x) <= l_x / 2.0",
                      "-l_y / 2.0 <= (x[1] - c_y) <= l_y / 2.0"])
@@ -289,21 +300,25 @@ def open_hyper_cube(dim, n_points = 10, openings = None):
 
     return mesh, facet_markers
 
+
 def converging_diverging_pipe():
+    """
+    Generates the mesh of converging-diverging pipe from the gmsh-file
+    `converging_diverging_pipe.geo`.
+    """
     # define location of gmsh files
     fname = "converging_diverging_pipe.geo"
     geo_files = glob.glob("./../*/*.geo", recursive=True)
     for file in geo_files:
         if fname in file:
             geo_file = path.join(os.getcwd(), file[2:])
-            print(geo_file)
             break
     assert path.exists(geo_file)
     msh_file = geo_file.replace(".geo", ".msh")
 
     # check if msh file exists
     if not path.exists(msh_file):
-        subprocess.run(["gmsh", geo_file, "-2", "-o "  + msh_file], check=True)
+        subprocess.run(["gmsh", geo_file, "-2", "-o " + msh_file], check=True)
     assert path.exists(msh_file)
 
     # convert msh files
@@ -311,7 +326,7 @@ def converging_diverging_pipe():
     subprocess.run(["dolfin-convert", msh_file, xml_file], check=True)
     assert path.exists(msh_file)
 
-    physical_regions_xml_file = xml_file.replace(".xml","_physical_region.xml")
+    physical_regions_xml_file = xml_file.replace(".xml", "_physical_region.xml")
     assert path.exists(physical_regions_xml_file)
 
     BoundaryMarkers = SymmetricPipeBoundaryMarkers

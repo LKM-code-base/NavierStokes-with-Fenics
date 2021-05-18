@@ -3,6 +3,7 @@
 from dolfin import NonlinearProblem
 from dolfin import SystemAssembler
 
+
 class CustomNonlinearProblem(NonlinearProblem):
     """Class for interfacing with not only :py:class:`NewtonSolver`."""
     def __init__(self, F, bcs, J):
@@ -36,7 +37,8 @@ class CustomNonlinearProblem(NonlinearProblem):
     def get_form(self, key):
         form = self.forms.get(key)
         if form is None:
-            raise AttributeError("Form '%s' requested by NonlinearProblem not available" % key)
+            raise AttributeError("Form '%s' requested by NonlinearProblem not "
+                                 "available" % key)
         return form
 
     def function_space(self):

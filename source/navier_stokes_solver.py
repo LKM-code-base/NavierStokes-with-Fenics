@@ -11,6 +11,7 @@ from dolfin import grad, div, dot, inner
 
 from auxiliary_modules import CustomNonlinearProblem
 
+
 class VelocityBCType(Enum):
     no_slip = auto()
     no_normal_flux = auto()
@@ -18,19 +19,23 @@ class VelocityBCType(Enum):
     constant = auto()
     function = auto()
 
+
 class PressureBCType(Enum):
     constant = auto()
     function = auto()
     mean_value = auto()
     none = auto()
 
+
 class TractionBCType(Enum):
     constant = auto()
     function = auto()
     free = auto()
 
+
 class SpatialDiscretizationConvectiveTerm(Enum):
     standard = auto()
+
 
 def boundary_normal(mesh, facet_markers, bndry_id):
     """
@@ -39,6 +44,8 @@ def boundary_normal(mesh, facet_markers, bndry_id):
         1. the facet normal vectors are co-linear
         2. the vector connecting two face midpoints is tangential to both
            normal vectors.
+
+    Returns a tuple of float representing the normal.
     """
     tol = 1.0e3 * dlfn.DOLFIN_EPS
     normal_vectors = []
@@ -49,10 +56,16 @@ def boundary_normal(mesh, facet_markers, bndry_id):
                 current_normal = f.normal()
                 current_midpoint = f.midpoint()
                 for normal, midpoint in zip(normal_vectors, midpoints):
+                    # check that normal vectors point in the same direction
                     assert current_normal.dot(normal) > 0.0
+                    # check that normal vector are parallel
                     if abs(current_normal.dot(normal) - 1.0) > tol: # pragma: no cover
                         raise ValueError("Boundary facets do not share common normal.")
+                    # compute a tangential vector as connection vector of two
+                    # midpoints
                     midpoint_connection = midpoint - current_midpoint
+                    # check that tangential vector is orthogonal to both normal
+                    # vectors
                     if abs(midpoint_connection.dot(normal)) > tol: # pragma: no cover
                         raise ValueError("Midpoint connection vector is not tangential to boundary facets.")
                     if abs(midpoint_connection.dot(current_normal)) > tol: # pragma: no cover
@@ -82,8 +95,8 @@ class StationaryNavierStokesSolver():
     _apply_boundary_traction = False
     _null_scalar = dlfn.Constant(0.)
 
-    def __init__(self, mesh, boundary_markers, tol = 1e-10, maxiter = 50,
-                 tol_picard = 1e-2, maxiter_picard = 10):
+    def __init__(self, mesh, boundary_markers, tol=1e-10, maxiter=50,
+                 tol_picard=1e-2, maxiter_picard=10):
 
         # input check
         assert isinstance(mesh, dlfn.Mesh)
@@ -100,7 +113,7 @@ class StationaryNavierStokesSolver():
         self._n_cells = self._mesh.num_cells()
 
         # dimension-dependent variables
-        self._null_vector = dlfn.Constant((0., ) *  self._space_dim)
+        self._null_vector = dlfn.Constant((0., ) * self._space_dim)
 
         # set numerical tolerances
         self._tol_picard = tol_picard
@@ -128,7 +141,7 @@ class StationaryNavierStokesSolver():
         elemP = dlfn.FiniteElement("CG", cell, self._p_deg)
 
         # element
-        mixedElement = dlfn.MixedElement([elemV , elemP])
+        mixedElement = dlfn.MixedElement([elemV, elemP])
 
         # mixed function space
         self._Wh = dlfn.FunctionSpace(self._mesh, mixedElement)
@@ -147,19 +160,24 @@ class StationaryNavierStokesSolver():
         velocity_space = self._Wh.sub(self._field_association["velocity"])
         velocity_bcs = self._bcs["velocity"]
         for bc_type, bc_bndry_id, bc_value in velocity_bcs:
+
             if bc_type is VelocityBCType.no_slip:
                 bc_object = dlfn.DirichletBC(velocity_space, self._null_vector,
                                              self._boundary_markers, bc_bndry_id)
                 self._dirichlet_bcs.append(bc_object)
+
             elif bc_type is VelocityBCType.constant:
                 const_function = dlfn.Constant(bc_value)
                 bc_object = dlfn.DirichletBC(velocity_space, const_function,
                                              self._boundary_markers, bc_bndry_id)
                 self._dirichlet_bcs.append(bc_object)
+
             elif bc_type is VelocityBCType.function:
                 bc_object = dlfn.DirichletBC(velocity_space, bc_value,
                                              self._boundary_markers, bc_bndry_id)
                 self._dirichlet_bcs.append(bc_object)
+
+            # TODO: requires testing
             elif bc_type is VelocityBCType.no_normal_flux:
                 # extract normal vector
                 bndry_normal = boundary_normal(self._mesh, self._boundary_markers, bc_bndry_id)
@@ -174,6 +192,8 @@ class StationaryNavierStokesSolver():
                 bc_object = dlfn.DirichletBC(velocity_space.sub(normal_direction), self._null_scalar,
                                              self._boundary_markers, bc_bndry_id)
                 self._dirichlet_bcs.append(bc_object)
+
+            # TODO: requires testing
             elif bc_type is VelocityBCType.no_tangential_flux:
                 # extract normal vector
                 bndry_normal = boundary_normal(self._mesh, self._boundary_markers, bc_bndry_id)
@@ -190,6 +210,7 @@ class StationaryNavierStokesSolver():
                         bc_object = dlfn.DirichletBC(velocity_space.sub(d), self._null_scalar,
                                                      self._boundary_markers, bc_bndry_id)
                         self._dirichlet_bcs.append(bc_object)
+
             else:
                 raise NotImplementedError()
         # pressure part
@@ -221,7 +242,7 @@ class StationaryNavierStokesSolver():
                     # the current boundary
                     for _, velocity_bndry_id, _ in velocity_bcs:
                         assert velocity_bndry_id != bc_bndry_id, \
-                            ValueError("Unconsistent boundary conditions on boundry with "\
+                            ValueError("Unconsistent boundary conditions on boundry with "
                                        "boundary id: {0}.".format(bc_bndry_id))
                     if bc_type is TractionBCType.constant:
                         const_function = dlfn.Constant(bc_value)
@@ -259,20 +280,21 @@ class StationaryNavierStokesSolver():
 
         # viscous operator
         if hasattr(self, "_traction_bs"):
-            a = lambda phi, psi: inner(grad(phi), grad(psi))
+            def a(phi, psi): return inner(grad(phi), grad(psi))
         else:
-            a = lambda phi, psi: dlfn.Constant(0.5) *\
-                inner(grad(phi) + grad(phi).T, grad(psi) + grad(psi).T)
+            def a(phi, psi):
+                return dlfn.Constant(0.5) * inner(grad(phi) + grad(phi).T,
+                                                  grad(psi) + grad(psi).T)
         # divergence operator
-        b = lambda phi, psi: inner(div(phi), psi)
+        def b(phi, psi): return inner(div(phi), psi)
         # non-linear convection operator
-        c = lambda phi, chi, psi: dot(dot(grad(chi), phi), psi)
+        def c(phi, chi, psi): return dot(dot(grad(chi), phi), psi)
 
         # weak forms
         # mass balance
         F_mass = -b(sol_v, q) * dV
         # momentum balance
-        F_momentum = ( c(sol_v, sol_v, w) - b(w, sol_p) + (1. / Re) * a(sol_v, w) ) * dV
+        F_momentum = (c(sol_v, sol_v, w) - b(w, sol_p) + (1. / Re) * a(sol_v, w)) * dV
         # add body force term
         if self._apply_body_force is True:
             assert hasattr(self, "_Fr"), "Froude number is not specified."
@@ -287,7 +309,7 @@ class StationaryNavierStokesSolver():
 
         # linearization using Picard's method
         J_picard_mass = -b(v, q) * dV
-        J_picard_momentum = ( c(sol_v, v, w) - b(w, p) + (1. / Re) * a(v, w) ) * dV
+        J_picard_momentum = (c(sol_v, v, w) - b(w, p) + (1. / Re) * a(v, w)) * dV
         self._J_picard = J_picard_mass + J_picard_momentum
 
         # linearization using Newton's method
@@ -393,7 +415,7 @@ class StationaryNavierStokesSolver():
         # boundary conditions accepted
         self._bcs = bcs
 
-    def set_dimensionless_numbers(self, Re = 1.0, Fr = None):
+    def set_dimensionless_numbers(self, Re=1.0, Fr=None):
         """
         Updates the parameters of the model by creating or modifying class
         objects.
@@ -416,7 +438,7 @@ class StationaryNavierStokesSolver():
             self._apply_body_force = True
 
             if self._body_force_specified is False:
-                dlfn.info("Attention: The body force is not specified "\
+                dlfn.info("Attention: The body force is not specified "
                           "although the Froude number is.")
 
             if not hasattr(self, "_Fr"):
@@ -451,7 +473,7 @@ class StationaryNavierStokesSolver():
         self._body_force_specified = True
 
         if self._body_force_specified is False:
-            dlfn.info("Attention: The Froude number is not specified "\
+            dlfn.info("Attention: The Froude number is not specified "
                       "although the body force is.")
 
     def solve(self):
@@ -489,3 +511,8 @@ class StationaryNavierStokesSolver():
         self._nonlinear_solver.parameters["maximum_iterations"] = self._maxiter
         self._nonlinear_solver.parameters["error_on_nonconvergence"] = False
         self._nonlinear_solver.solve(self._newton_problem, self._solution.vector())
+
+        # check residual
+        self._newton_problem.F(residual_vector, self._solution.vector())
+        residual = residual_vector.norm("l2")
+        assert residual <= self._tol, "Newton iteration did not converge."

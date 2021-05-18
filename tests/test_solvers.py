@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import dolfin as dlfn
-dlfn.set_log_level(40)
+dlfn.set_log_level(20)
 
 from navier_stokes_problem import StationaryNavierStokesProblem, VelocityBCType
 from grid_generator import hyper_cube, open_hyper_cube, HyperCubeBoundaryMarkers
@@ -37,7 +37,7 @@ class GravityDrivenFlowProblem(StationaryNavierStokesProblem):
         self._n_points = n_points
         self._problem_name  = "OpenCube"
 
-        self.set_parameters(Re=25.0,  Fr=10.0)
+        self.set_parameters(Re=200.0,  Fr=10.0)
 
     def setup_mesh(self):
         # create mesh
@@ -56,6 +56,35 @@ class GravityDrivenFlowProblem(StationaryNavierStokesProblem):
                 (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.right.value, None),
                 (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.bottom.value, None))
         self._bcs = {"velocity": velocity_bcs}
+
+    def postprocess_solution(self):
+        pressure = self._get_pressure()
+        velocity = self._get_velocity()
+        # compute potential energy
+        strings = tuple("x[{0:d}]".format(i) for i in range(self._space_dim))
+        position_vector = dlfn.Expression(strings, degree=1)
+        potential_energy = dlfn.dot(self._body_force, position_vector)
+        # compute Bernoulli potential
+        Phi = dlfn.Constant(0.5) * dlfn.dot(velocity, velocity)
+        Phi += pressure + potential_energy / dlfn.Constant(self._Fr)**2
+        # project on Bernoulli potential on the mesh
+        Vh = dlfn.FunctionSpace(self._mesh, "CG", 1)
+        phi = dlfn.project(Phi, Vh)
+        phi.rename("Bernoulli potential", "")
+        # add Bernoulli potential to the field output
+        self._add_to_field_output(phi)
+        # add pressure gradient to the field output
+        self._add_to_field_output(self._compute_pressure_gradient())
+        # add vorticity to the field output
+        self._add_to_field_output(self._compute_vorticity())
+        # add stream potential to the field output
+        self._add_to_field_output(self._compute_stream_potential())
+        
+        # compute mass flux over the entire boundary
+        normal = dlfn.FacetNormal(self._mesh)
+        dA = dlfn.Measure("ds", domain=self._mesh, subdomain_data=self._boundary_markers)
+        mass_flux = dlfn.assemble(dlfn.dot(normal, velocity) * dA)
+        dlfn.info("Value of the total mass flux: {0:6.2e}".format(mass_flux))
 
     def set_body_force(self):
         self._body_force = dlfn.Constant((0.0, -1.0))
