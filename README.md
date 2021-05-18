@@ -10,6 +10,8 @@ ToDo list:
 - [ ] add channel flow test (periodic bcs and pressure gradient)
 - [ ] add Couette flow test (component-wise boundary conditions)
 - [ ] add Taylor-Green vortex
+- [ ] modify computation of potential 
+- [ ] add computation of the stream function
 - [ ] add serialization and restart features
 - [ ] simplify specification of boundary conditions
 
