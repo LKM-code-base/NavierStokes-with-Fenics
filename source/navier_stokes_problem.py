@@ -9,9 +9,10 @@ from navier_stokes_solver import VelocityBCType
 from navier_stokes_solver import PressureBCType
 from navier_stokes_solver import TractionBCType
 from navier_stokes_solver import StationaryNavierStokesSolver as Solver
-
+from auxiliary_methods import extract_all_boundary_markers
 
 class ProblemBase:
+    _suffix = ".xdmf"
 
     def __init__(self, main_dir=None):
         # set write and read directory
@@ -58,7 +59,7 @@ class ProblemBase:
             vorticity = dlfn.project(velocity_curl, Wh)
             vorticity.rename("vorticity", "")
             return vorticity
-        else:
+        else:  # pragma: no cover
             raise RuntimeError()
 
     def _compute_pressure_gradient(self):
@@ -90,7 +91,6 @@ class ProblemBase:
         """
         assert hasattr(self, "_mesh")
         assert hasattr(self, "_boundary_markers")
-        assert hasattr(self, "_boundary_marker_set")
 
         velocity = self._get_velocity()
 
@@ -116,8 +116,7 @@ class ProblemBase:
         bc_map = self._get_boundary_conditions_map()
         assert VelocityBCType.no_slip in bc_map
 
-        assert hasattr(self, "_boundary_marker_set")
-        other_bndry_ids = self._boundary_marker_set.copy()
+        other_bndry_ids = extract_all_boundary_markers(self._mesh, self._boundary_markers)
 
         # apply homogeneous Dirichlet bcs on the potential where a no-slip
         # bc is applied on the velocity
@@ -153,41 +152,35 @@ class ProblemBase:
 
         return stream_potential
 
-    def _collect_boundary_markers(self):
-        """
-        Store all boundary markers specified in the MeshFunction
-        `self._boundary_markers` inside a set.
-        """
-        assert hasattr(self, "_mesh")
-        assert hasattr(self, "_boundary_markers")
-
-        self._boundary_marker_set = set()
-
-        for f in dlfn.facets(self._mesh):
-            if f.exterior():
-                self._boundary_marker_set.add(self._boundary_markers[f])
-
     def _get_boundary_conditions_map(self, field="velocity"):
         """
         Returns a mapping relating the type of the boundary condition to the
         boundary identifiers where it is is applied.
         """
+        assert isinstance(field, str)
         assert hasattr(self, "_bcs")
 
+        if field == "velocity":
+            BCType = VelocityBCType
+        elif field.lower() == "pressure":
+            BCType = PressureBCType
+        else:  # pragma: no cover
+            raise RuntimeError()
+        
         bc_map = {}
-        bcs = self._bcs[field]
-
-        for bc_type, bc_bndry_id, _ in bcs:
+        for bc_type, bc_bndry_id, _ in self._bcs:
+            if bc_type not in BCType:
+                continue
             if bc_type in bc_map:
-                tmp = list(bc_map[bc_type])
-                tmp.append(bc_bndry_id)
+                tmp = set(bc_map[bc_type])
+                tmp.add(bc_bndry_id)
                 bc_map[bc_type] = tuple(tmp)
             else:
                 bc_map[bc_type] = (bc_bndry_id, )
 
         return bc_map
 
-    def _get_filename(self):
+    def _get_filename(self):  # pragma: no cover
         """
         Purely virtual method for setting the filename.
         """
@@ -203,7 +196,7 @@ class ProblemBase:
         index = solver.field_association["pressure"]
         return solution_components[index]
 
-    def _get_solver(self):
+    def _get_solver(self):  # pragma: no cover
         """
         Purely virtual method for getting the solver of the problem.
         """
@@ -251,36 +244,41 @@ class ProblemBase:
                 for field in self._additional_field_output:
                     results_file.write(field, current_time)
 
-    def postprocess_solution(self):
+    def postprocess_solution(self):  # pragma: no cover
         """
         Virtual method for additional post-processing.
         """
         pass
 
-    def setup_mesh(self):
+    def setup_mesh(self):  # pragma: no cover
         """
         Purely virtual method for setting up the mesh of the problem.
         """
         raise NotImplementedError("You are calling a purely virtual method.")
 
-    def set_boundary_conditions(self):
+    def set_boundary_conditions(self):  # pragma: no cover
         """
         Purely virtual method for specifying the boundary conditions of the
         problem.
         """
         raise NotImplementedError("You are calling a purely virtual method.")
 
-    def set_body_force(self):
+    def set_body_force(self):  # pragma: no cover
         """
         Virtual method for specifying the body force of the problem.
         """
         pass
 
-    def solve_problem(self):
+    def solve_problem(self):  # pragma: no cover
         """
         Purely virtual method for solving the problem.
         """
         raise NotImplementedError("You are calling a purely virtual method.")
+
+    @property
+    def space_dim(self):
+        assert hasattr(self, "_space_dim")
+        return self._space_dim
 
 
 class StationaryNavierStokesProblem(ProblemBase):
@@ -411,9 +409,6 @@ class StationaryNavierStokesProblem(ProblemBase):
         self._space_dim = self._mesh.geometry().dim()
         self._n_cells = self._mesh.num_cells()
 
-        # collect all boundary markers
-        self._collect_boundary_markers()
-
         # setup boundary conditions
         self.set_boundary_conditions()
 
@@ -449,13 +444,13 @@ class StationaryNavierStokesProblem(ProblemBase):
             else:
                 dlfn.info("Solving problem with Re = {0:.2f}".format(self._Re))
             self._navier_stokes_solver.solve()
-
+    
             # postprocess solution
             self.postprocess_solution()
-
+    
             # write XDMF-files
             self._write_xdmf_file()
-
+            
             return
 
         except RuntimeError:

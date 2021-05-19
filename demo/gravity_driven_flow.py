@@ -36,12 +36,10 @@ class GravityDrivenFlowProblem(StationaryNavierStokesProblem):
         # velocity boundary conditions
         no_slip = VelocityBCType.no_slip
         BoundaryMarkers = HyperCubeBoundaryMarkers
-        velocity_bcs = (
-                (no_slip, BoundaryMarkers.left.value, None),
-                (no_slip, BoundaryMarkers.right.value, None),
-                (no_slip, BoundaryMarkers.bottom.value, None),
-                (no_slip, BoundaryMarkers.top.value, None))
-        self._bcs = {"velocity": velocity_bcs}
+        self._bcs = ((no_slip, BoundaryMarkers.left.value, None),
+                     (no_slip, BoundaryMarkers.right.value, None),
+                     (no_slip, BoundaryMarkers.bottom.value, None),
+                     (no_slip, BoundaryMarkers.top.value, None))
 
     def postprocess_solution(self):
         pressure = self._get_pressure()

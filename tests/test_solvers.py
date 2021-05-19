@@ -24,12 +24,10 @@ class CavityProblem(StationaryNavierStokesProblem):
 
     def set_boundary_conditions(self):
         # velocity boundary conditions
-        velocity_bcs = (
-                (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.left.value, None),
-                (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.right.value, None),
-                (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.bottom.value, None),
-                (VelocityBCType.constant, HyperCubeBoundaryMarkers.top.value, (1.0, 0.0)))
-        self._bcs = {"velocity": velocity_bcs}
+        self._bcs = ((VelocityBCType.no_slip, HyperCubeBoundaryMarkers.left.value, None),
+                     (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.right.value, None),
+                     (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.bottom.value, None),
+                     (VelocityBCType.constant, HyperCubeBoundaryMarkers.top.value, (1.0, 0.0)))
 
 
 class GravityDrivenFlowProblem(StationaryNavierStokesProblem):
@@ -53,11 +51,9 @@ class GravityDrivenFlowProblem(StationaryNavierStokesProblem):
 
     def set_boundary_conditions(self):
         # velocity boundary conditions
-        velocity_bcs = (
-                (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.left.value, None),
-                (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.right.value, None),
-                (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.bottom.value, None))
-        self._bcs = {"velocity": velocity_bcs}
+        self._bcs = ((VelocityBCType.no_slip, HyperCubeBoundaryMarkers.left.value, None),
+                     (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.right.value, None),
+                     (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.bottom.value, None))
 
     def postprocess_solution(self):
         pressure = self._get_pressure()
