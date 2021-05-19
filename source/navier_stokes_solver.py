@@ -9,8 +9,8 @@ import math
 import dolfin as dlfn
 from dolfin import grad, div, dot, inner
 
-from auxiliary_modules import CustomNonlinearProblem
-
+from auxiliary_classes import CustomNonlinearProblem
+from auxiliary_methods import boundary_normal
 
 class VelocityBCType(Enum):
     no_slip = auto()
@@ -363,7 +363,7 @@ class StationaryNavierStokesSolver():
                     bndry_ids_found[self._boundary_markers[facet]] = True
                     if all(bndry_ids_found.values()):
                         break
-        if not all(bndry_ids_found):
+        if not all(bndry_ids_found):  # pragma: no cover
             missing = [key for key, value in bndry_ids_found.items() if value is False]
             message = "Boundary id" + ("s " if len(missing) > 1 else " ")
             message += ", ".join(map(str, missing))

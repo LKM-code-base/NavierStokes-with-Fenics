@@ -3,6 +3,7 @@
 
 import os
 from os import path
+import glob
 import subprocess
 
 from enum import Enum, auto
@@ -175,7 +176,7 @@ def open_hyper_cube(dim, n_points=10, openings=None):
     """
     tol = 1.0e3 * dlfn.DOLFIN_EPS
 
-    if openings is None:
+    if openings is None: # pragma: no cover
         return hyper_cube(dim, n_points)
 
     # input check
@@ -294,7 +295,7 @@ def open_hyper_cube(dim, n_points=10, openings=None):
                                            l_x=width[0], l_y=width[1],
                                            c_x=center[0], c_y=center[1])
             gamma.mark(facet_markers, BoundaryMarkers.opening.value)
-        else:
+        else: # pragma: no cover
             raise RuntimeError()
 
     return mesh, facet_markers
@@ -306,7 +307,12 @@ def converging_diverging_pipe():
     `converging_diverging_pipe.geo`.
     """
     # define location of gmsh files
-    geo_file = path.join(os.getcwd(), "gmsh", "converging_diverging_pipe.geo")
+    fname = "converging_diverging_pipe.geo"
+    geo_files = glob.glob("./../*/*.geo", recursive=True)
+    for file in geo_files:
+        if fname in file:
+            geo_file = path.join(os.getcwd(), file[2:])
+            break
     assert path.exists(geo_file)
     msh_file = geo_file.replace(".geo", ".msh")
 

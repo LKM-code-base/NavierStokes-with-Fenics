@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import os
-
 from os import path
 
 import dolfin as dlfn
 
 import numpy as np
 
+from navier_stokes_solver import VelocityBCType
+
+from navier_stokes_solver import PressureBCType
+
+from navier_stokes_solver import TractionBCType
+
 from navier_stokes_solver import StationaryNavierStokesSolver as Solver
 
-from navier_stokes_solver import VelocityBCType
 
 class ProblemBase:
 
@@ -131,6 +135,7 @@ class ProblemBase:
         bc_map = self._get_boundary_conditions_map()
         assert VelocityBCType.no_slip in bc_map
 
+        assert hasattr(self, "_boundary_marker_set")
         other_bndry_ids = self._boundary_marker_set.copy()
 
         # apply homogeneous Dirichlet bcs on the potential where a no-slip
@@ -160,11 +165,26 @@ class ProblemBase:
 
         # potential of the flow
         stream_potential = dlfn.Function(Wh)
+        stream_potential.rename("velocity potential", "")
 
         # solve problem
         dlfn.solve(lhs == rhs, stream_potential, dirichlet_bcs)
 
         return stream_potential
+
+    def _collect_boundary_markers(self):
+        """
+        Store all boundary markers specified in the MeshFunction
+        `self._boundary_markers` inside a set.
+        """
+        assert hasattr(self, "_mesh")
+        assert hasattr(self, "_boundary_markers")
+
+        self._boundary_marker_set = set()
+
+        for f in dlfn.facets(self._mesh):
+            if f.exterior():
+                self._boundary_marker_set.add(self._boundary_markers[f])
 
     def _get_boundary_conditions_map(self, field="velocity"):
         """
@@ -420,7 +440,7 @@ class StationaryNavierStokesProblem(ProblemBase):
         self.set_body_force()
 
         # setup parameters
-        if not hasattr(self, "_Re"):
+        if not hasattr(self, "_Re"):  # pragma: no cover
             self.set_parameters()
 
         # create solver object
