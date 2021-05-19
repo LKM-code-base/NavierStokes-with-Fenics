@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import dolfin as dlfn
+from navier_stokes_problem import StationaryNavierStokesProblem
+from navier_stokes_problem import VelocityBCType
+from grid_generator import hyper_cube
+from grid_generator import open_hyper_cube
+from grid_generator import HyperCubeBoundaryMarkers
 dlfn.set_log_level(20)
-
-from navier_stokes_problem import StationaryNavierStokesProblem, VelocityBCType
-from grid_generator import hyper_cube, open_hyper_cube, HyperCubeBoundaryMarkers
 
 
 class CavityProblem(StationaryNavierStokesProblem):
-    def __init__(self, n_points, main_dir = None):
+    def __init__(self, n_points, main_dir=None):
         super().__init__(main_dir)
 
         self._n_points = n_points
-        self._problem_name  = "Cavity"
+        self._problem_name = "Cavity"
 
-        self.set_parameters(Re = 10.0)
+        self.set_parameters(Re=10.0)
 
     def setup_mesh(self):
         # create mesh
@@ -31,13 +33,13 @@ class CavityProblem(StationaryNavierStokesProblem):
 
 
 class GravityDrivenFlowProblem(StationaryNavierStokesProblem):
-    def __init__(self, n_points, main_dir = None):
+    def __init__(self, n_points, main_dir=None):
         super().__init__(main_dir)
 
         self._n_points = n_points
-        self._problem_name  = "OpenCube"
+        self._problem_name = "OpenCube"
 
-        self.set_parameters(Re=200.0,  Fr=10.0)
+        self.set_parameters(Re=200.0, Fr=10.0)
 
     def setup_mesh(self):
         # create mesh
@@ -79,7 +81,7 @@ class GravityDrivenFlowProblem(StationaryNavierStokesProblem):
         self._add_to_field_output(self._compute_vorticity())
         # add stream potential to the field output
         self._add_to_field_output(self._compute_stream_potential())
-        
+
         # compute mass flux over the entire boundary
         normal = dlfn.FacetNormal(self._mesh)
         dA = dlfn.Measure("ds", domain=self._mesh, subdomain_data=self._boundary_markers)

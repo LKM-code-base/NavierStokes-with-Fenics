@@ -2,17 +2,12 @@
 # -*- coding: utf-8 -*-
 import os
 from os import path
-
 import dolfin as dlfn
-
 import numpy as np
 
 from navier_stokes_solver import VelocityBCType
-
 from navier_stokes_solver import PressureBCType
-
 from navier_stokes_solver import TractionBCType
-
 from navier_stokes_solver import StationaryNavierStokesSolver as Solver
 
 
@@ -36,20 +31,6 @@ class ProblemBase:
         if not hasattr(self, "_additional_field_output"):
             self._additional_field_output = []
         self._additional_field_output.append(field)
-
-    def _collect_boundary_markers(self):
-        """
-        Store all boundary markers specified in the MeshFunction
-        `self._boundary_markers` inside a set.
-        """
-        assert hasattr(self, "_mesh")
-        assert hasattr(self, "_boundary_markers")
-
-        self._boundary_marker_set = set()
-
-        for f in dlfn.facets(self._mesh):
-            if f.exterior():
-                self._boundary_marker_set.add(self._boundary_markers[f])
 
     def _compute_vorticity(self):
         """
@@ -238,7 +219,7 @@ class ProblemBase:
         index = solver.field_association["velocity"]
         return solution_components[index]
 
-    def _write_xdmf_file(self, current_time = 0.0):
+    def _write_xdmf_file(self, current_time=0.0):
         """
         Write the output to an xdmf file. The solution and additional fields
         are output to the file.
@@ -269,6 +250,7 @@ class ProblemBase:
             if hasattr(self, "_additional_field_output"):
                 for field in self._additional_field_output:
                     results_file.write(field, current_time)
+
     def postprocess_solution(self):
         """
         Virtual method for additional post-processing.
@@ -299,7 +281,6 @@ class ProblemBase:
         Purely virtual method for solving the problem.
         """
         raise NotImplementedError("You are calling a purely virtual method.")
-
 
 
 class StationaryNavierStokesProblem(ProblemBase):

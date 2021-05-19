@@ -3,7 +3,9 @@
 from dolfin import NonlinearProblem
 from dolfin import SystemAssembler
 
+
 __all__ = ["CustomNonlinearProblem"]
+
 
 class CustomNonlinearProblem(NonlinearProblem):
     """Class for interfacing with not only :py:class:`NewtonSolver`."""

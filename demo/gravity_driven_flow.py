@@ -65,7 +65,7 @@ class GravityDrivenFlowProblem(StationaryNavierStokesProblem):
         self._add_to_field_output(self._compute_vorticity())
         # add stream potential to the field output
         self._add_to_field_output(self._compute_stream_potential())
-        
+
         # compute mass flux over the entire boundary
         normal = dlfn.FacetNormal(self._mesh)
         dA = dlfn.Measure("ds", domain=self._mesh, subdomain_data=self._boundary_markers)

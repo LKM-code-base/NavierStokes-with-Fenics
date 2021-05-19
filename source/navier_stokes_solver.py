@@ -12,6 +12,7 @@ from dolfin import grad, div, dot, inner
 from auxiliary_classes import CustomNonlinearProblem
 from auxiliary_methods import boundary_normal
 
+
 class VelocityBCType(Enum):
     no_slip = auto()
     no_normal_flux = auto()
