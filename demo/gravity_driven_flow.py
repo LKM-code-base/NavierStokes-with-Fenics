@@ -36,12 +36,10 @@ class GravityDrivenFlowProblem(StationaryNavierStokesProblem):
         # velocity boundary conditions
         no_slip = VelocityBCType.no_slip
         BoundaryMarkers = HyperCubeBoundaryMarkers
-        velocity_bcs = (
-                (no_slip, BoundaryMarkers.left.value, None),
-                (no_slip, BoundaryMarkers.right.value, None),
-                (no_slip, BoundaryMarkers.bottom.value, None),
-                (no_slip, BoundaryMarkers.top.value, None))
-        self._bcs = {"velocity": velocity_bcs}
+        self._bcs = ((no_slip, BoundaryMarkers.left.value, None),
+                     (no_slip, BoundaryMarkers.right.value, None),
+                     (no_slip, BoundaryMarkers.bottom.value, None),
+                     (no_slip, BoundaryMarkers.top.value, None))
 
     def postprocess_solution(self):
         pressure = self._get_pressure()
@@ -65,7 +63,7 @@ class GravityDrivenFlowProblem(StationaryNavierStokesProblem):
         self._add_to_field_output(self._compute_vorticity())
         # add stream potential to the field output
         self._add_to_field_output(self._compute_stream_potential())
-        
+
         # compute mass flux over the entire boundary
         normal = dlfn.FacetNormal(self._mesh)
         dA = dlfn.Measure("ds", domain=self._mesh, subdomain_data=self._boundary_markers)

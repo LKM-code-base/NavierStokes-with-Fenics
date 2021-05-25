@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 from grid_generator import hyper_cube, HyperCubeBoundaryMarkers
-from navier_stokes_solver import boundary_normal
+from auxiliary_methods import boundary_normal
 
 
 def compare_tuples(a, b):
     assert a == b, "The tuple {0} is not equal to the tuple {1}".format(a, b)
+
 
 def test_boundary_normal():
     # two-dimensional case
