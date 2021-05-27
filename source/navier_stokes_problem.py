@@ -5,11 +5,17 @@ from os import path
 import dolfin as dlfn
 import numpy as np
 
+from auxiliary_methods import extract_all_boundary_markers
+
+from imex_time_stepping import IMEXTimeStepping
+from imex_time_stepping import IMEXType
+
 from navier_stokes_solver import VelocityBCType
 from navier_stokes_solver import PressureBCType
 from navier_stokes_solver import TractionBCType
-from navier_stokes_solver import StationaryNavierStokesSolver as Solver
-from auxiliary_methods import extract_all_boundary_markers
+from navier_stokes_solver import StationaryNavierStokesSolver as StationarySolver
+from navier_stokes_solver import InstationaryNavierStokesSolver as InstationarySolver
+
 
 class ProblemBase:
     _suffix = ".xdmf"
@@ -166,7 +172,7 @@ class ProblemBase:
             BCType = PressureBCType
         else:  # pragma: no cover
             raise RuntimeError()
-        
+
         bc_map = {}
         for bc_type, bc_bndry_id, _ in self._bcs:
             if bc_type not in BCType:
@@ -283,7 +289,7 @@ class ProblemBase:
 
 class StationaryNavierStokesProblem(ProblemBase):
     """
-    Class to simulate stationary fluid flow using the `StationaryNavierStokesSolve`.
+    Class to simulate stationary fluid flow using the `StationaryNavierStokesSolver`.
 
     Parameters
     ----------
@@ -346,12 +352,11 @@ class StationaryNavierStokesProblem(ProblemBase):
         assert hasattr(self, "_Re")
         assert hasattr(self, "_problem_name")
         problem_name = self._problem_name
-        suffix = ".xdmf"
 
         fname = problem_name + "_Re" + "{0:01.4e}".format(self._Re)
         if hasattr(self, "_Fr") and self._Fr is not None:
             fname += "_Fr" + "{0:01.4e}".format(self._Fr)
-        fname += suffix
+        fname += self._suffix
 
         return path.join(self._results_dir, fname)
 
@@ -444,13 +449,13 @@ class StationaryNavierStokesProblem(ProblemBase):
             else:
                 dlfn.info("Solving problem with Re = {0:.2f}".format(self._Re))
             self._navier_stokes_solver.solve()
-    
+
             # postprocess solution
             self.postprocess_solution()
-    
+
             # write XDMF-files
             self._write_xdmf_file()
-            
+
             return
 
         except RuntimeError:
@@ -493,3 +498,263 @@ class StationaryNavierStokesProblem(ProblemBase):
 
         # write XDMF-files
         self._write_xdmf_file()
+
+
+class InstationaryNavierStokesProblem(ProblemBase):
+    """
+    Class to simulate instationary fluid flow using the `StationaryNavierStokesSolver`.
+
+    Parameters
+    ----------
+    main_dir: str (optional)
+        Directory to save the results.
+    start_time:
+        Start of the simulation.
+
+    tol: float (optional)
+        Final tolerance for non-linear iteration.
+    maxiter: int (optional)
+        Maximum number of iterations in total.
+    tol_picard: float (optional)
+        Tolerance for the non-linear Picard iteration.
+    maxiter_picard: int (optional)
+        Maximum number of non-linear Picard iterations.
+    """
+    def __init__(self, main_dir=None, start_time=0.0, end_time=1.0,
+                 desired_start_time_step=0.0, n_max_steps=1000,
+                 tol=1e-10, maxiter=50,
+                 tol_picard=1e-2, maxiter_picard=10):
+        """
+        Constructor of the class.
+        """
+        super().__init__(main_dir)
+
+        self._start_time = start_time
+
+        # input check
+        assert all(isinstance(i, int) and i > 0 for i in (maxiter, maxiter_picard, n_max_steps))
+        assert all(isinstance(i, float) and i > 0.0 for i in (tol_picard, tol_picard,
+                                                              start_time, end_time,
+                                                              desired_start_time_step))
+
+        # set numerical tolerances
+        self._start_time = start_time
+        self._end_time = end_time
+        self._n_max_steps = n_max_steps
+        self._tol = tol
+        self._maxiter = maxiter
+
+        self._tol_picard = tol_picard
+        self._maxiter_picard = maxiter_picard
+
+        # setting discretization parameters
+        # polynomial degree
+        self._p_deg = 1
+        # quadrature degree
+        q_deg = self._p_deg + 2
+        dlfn.parameters["form_compiler"]["quadrature_degree"] = q_deg
+
+    def _compute_cfl_number(self):
+        """
+        Class method computing the maxmimum local CFL number.
+        """
+        raise NotImplementedError()
+
+    def _set_next_step_size(self):
+        """
+        Class method setting the size of the next time step.
+        """
+        raise NotImplementedError()
+
+    def _get_filename(self):
+        """
+        Class method returning a filename for the given set of parameters.
+
+        The method also updates the parameter file.
+
+        Parameters
+        ----------
+        Re : float
+            Kinetic Reynolds numbers.
+        Fr : float (optional)
+            Froude number.
+        suffix : str (optional)
+            Opitonal filename extension.
+
+        Returns
+        ----------
+        fname : str
+            filename
+        """
+        # input check
+        assert hasattr(self, "_problem_name")
+        problem_name = self._problem_name
+
+        fname = problem_name + "_Re" + "{0:01.4e}".format(self._Re)
+        if hasattr(self, "_Fr") and self._Fr is not None:
+            fname += "_Fr" + "{0:01.4e}".format(self._Fr)
+        fname += self._suffix
+
+        return path.join(self._results_dir, fname)
+
+    def _get_solver(self):
+        assert hasattr(self, "_navier_stokes_solver")
+        return self._navier_stokes_solver
+
+    def set_initial_condition(self):
+        """
+        Purely virtual method for specifying the boundary conditions of the
+        problem.
+        """
+        raise NotImplementedError("You are calling a purely virtual method.")
+
+    def set_parameters(self, Re=1.0, Fr=None,
+                       imex_type=None,
+                       min_cfl=None, max_cfl=None):
+        """
+        Sets up the parameters of the model by creating or modifying class
+        objects.
+
+        Parameters
+        ----------
+        Re : float
+            Kinetic Reynolds numbers.
+        Fr : float
+            Froude number.
+        """
+        assert isinstance(Re, float) and Re > 0.0
+        self._Re = Re
+
+        if Fr is not None:
+            assert isinstance(Fr, float) and Fr > 0.0
+        self._Fr = Fr
+
+        if imex_type is not None:
+            assert isinstance(imex_type, (str, IMEXType))
+            if isinstance(imex_type, IMEXType):
+                self._imex_type = imex_type
+            elif isinstance(imex_type, str):
+                assert imex_type in ("CNAB", "mCNAB", "CNLF", "SBDF2", "SBDF")
+                if imex_type == "CNAB":
+                    self._imex_type = IMEXType.CNAB
+                elif imex_type == "mCNAB":
+                    self._imex_type = IMEXType.mCNAB
+                elif imex_type == "CNLF":
+                    self._imex_type = IMEXType.CNLF
+                elif imex_type == "SBDF2" or imex_type == "SBDF":
+                    self._imex_type = IMEXType.SBDF2
+
+        if min_cfl is not None:
+            assert isinstance(min_cfl, float)
+            assert min_cfl > 0.0
+            if hasattr(self, "_max_cfl"):
+                assert min_cfl < self._max_cfl
+            self._min_cfl = min_cfl
+
+        if max_cfl is not None:
+            assert isinstance(max_cfl, float)
+            assert max_cfl > 0.0
+            if hasattr(self, "_min_cfl"):
+                assert self._min_cfl < max_cfl
+            self._max_cfl = max_cfl
+
+    def write_boundary_markers(self):
+        """
+        Write the boundary markers specified by the MeshFunction
+        `_boundary_markers` to a pvd-file.
+        """
+        assert hasattr(self, "_boundary_markers")
+        assert hasattr(self, "_problem_name")
+
+        # create results directory
+        assert hasattr(self, "_results_dir")
+        if not path.exists(self._results_dir):
+            os.makedirs(self._results_dir)
+
+        problem_name = self._problem_name
+        suffix = ".pvd"
+        fname = problem_name + "_BoundaryMarkers"
+        fname += suffix
+        fname = path.join(self._results_dir, fname)
+
+        dlfn.File(fname) << self._boundary_markers
+
+    def solve_problem(self):
+        """
+        Solve the stationary problem.
+        """
+        # setup mesh
+        self.setup_mesh()
+        assert self._mesh is not None
+        self._space_dim = self._mesh.geometry().dim()
+        self._n_cells = self._mesh.num_cells()
+
+        # setup boundary conditions
+        self.set_boundary_conditions()
+
+        # setup has body force
+        self.set_body_force()
+
+        # setup parameters
+        if not hasattr(self, "_Re"):  # pragma: no cover
+            self.set_parameters()
+
+        # set initial condition
+        self.set_initial_condition(self)
+
+        # create IMEX object
+        assert hasattr(self, "_imex_type")
+        self._time_stepping = IMEXTimeStepping(self._start_time, self._end_time,
+                                               self._imex_type,
+                                               desired_start_time_step=self._start_time_step)
+
+        # create solver object
+        if not hasattr(self, "_navier_stokes_solver"):
+            self._navier_stokes_solver = \
+                InstationarySolver(self._mesh, self._boundary_markers,
+                                   self._imex_scheme,
+                                   self._tol, self._maxiter,
+                                   self._tol_picard, self._maxiter_picard)
+
+        # pass boundary conditions
+        self._navier_stokes_solver.set_boundary_conditions(self._bcs)
+
+        # pass boundary conditions
+        self._navier_stokes_solver.set_initial_condition(self._initial_condition)
+
+        # pass dimensionless numbers
+        self._navier_stokes_solver.set_dimensionless_numbers(self._Re, self._Fr)
+
+        # pass body force
+        if hasattr(self, "_body_force"):
+            self._navier_stokes_solver.set_body_force(self._body_force)
+
+
+        dlfn.info("Solving problem with Re = {0:.2f} and "
+                  "Fr = {1:0.2f}".format(self._Re, self._Fr))
+
+        # time loop
+        while (not self._time_stepping.is_at_end()) or\
+            self._time_stepping.step_number > self._n_max_steps:
+
+            # set next step size
+            self._set_desired_next_step_size()
+
+            # update coefficients
+            self._time_stepping.update_coefficients()
+
+            # print info
+            print(self._time_stepping)
+
+            # solve problem
+            self._navier_stokes_solver.solve()
+
+            # advance time
+            self._time_stepping.advance_time()
+            self._navier_stokes_solver.advance_time()
+
+            # postprocess solution
+            self.postprocess_solution()
+            # write XDMF-files
+            self._write_xdmf_file()
+
