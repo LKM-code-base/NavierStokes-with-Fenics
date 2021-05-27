@@ -427,9 +427,9 @@ class StationaryNavierStokesProblem(ProblemBase):
         # create solver object
         if not hasattr(self, "_navier_stokes_solver"):
             self._navier_stokes_solver = \
-                Solver(self._mesh, self._boundary_markers,
-                       self._tol, self._maxiter,
-                       self._tol_picard, self._maxiter_picard)
+                StationarySolver(self._mesh, self._boundary_markers,
+                                 self._tol, self._maxiter,
+                                 self._tol_picard, self._maxiter_picard)
 
         # pass boundary conditions
         self._navier_stokes_solver.set_boundary_conditions(self._bcs)
@@ -601,7 +601,7 @@ class InstationaryNavierStokesProblem(ProblemBase):
         assert hasattr(self, "_navier_stokes_solver")
         return self._navier_stokes_solver
 
-    def set_initial_condition(self):
+    def set_initial_conditions(self):
         """
         Purely virtual method for specifying the boundary conditions of the
         problem.
@@ -712,15 +712,14 @@ class InstationaryNavierStokesProblem(ProblemBase):
         if not hasattr(self, "_navier_stokes_solver"):
             self._navier_stokes_solver = \
                 InstationarySolver(self._mesh, self._boundary_markers,
-                                   self._imex_scheme,
-                                   self._tol, self._maxiter,
-                                   self._tol_picard, self._maxiter_picard)
+                                   self._time_stepping,
+                                   self._tol, self._maxiter)
 
         # pass boundary conditions
         self._navier_stokes_solver.set_boundary_conditions(self._bcs)
 
         # pass boundary conditions
-        self._navier_stokes_solver.set_initial_condition(self._initial_condition)
+        self._navier_stokes_solver.set_initial_conditions(self._initial_conditions)
 
         # pass dimensionless numbers
         self._navier_stokes_solver.set_dimensionless_numbers(self._Re, self._Fr)
@@ -729,32 +728,29 @@ class InstationaryNavierStokesProblem(ProblemBase):
         if hasattr(self, "_body_force"):
             self._navier_stokes_solver.set_body_force(self._body_force)
 
-
         dlfn.info("Solving problem with Re = {0:.2f} and "
-                  "Fr = {1:0.2f}".format(self._Re, self._Fr))
+                  "Fr = {1:0.2f} until time = {2:0.2f}"
+                  .format(self._Re, self._Fr, self._time_stepping.end_time))
 
         # time loop
         while (not self._time_stepping.is_at_end()) or\
-            self._time_stepping.step_number > self._n_max_steps:
-
+                self._time_stepping.step_number > self._n_max_steps:
             # set next step size
             self._set_desired_next_step_size()
-
             # update coefficients
             self._time_stepping.update_coefficients()
-
             # print info
             print(self._time_stepping)
-
             # solve problem
             self._navier_stokes_solver.solve()
-
             # advance time
             self._time_stepping.advance_time()
             self._navier_stokes_solver.advance_time()
-
             # postprocess solution
-            self.postprocess_solution()
+            if self._postprocessing_frequency > 0:
+                if self._time_stepping.step_number % self._postprocessing_frequency:
+                    self.postprocess_solution()
             # write XDMF-files
-            self._write_xdmf_file()
-
+            if self._output_frequency > 0:
+                if self._time_stepping.step_number % self._output_frequency:
+                    self._write_xdmf_file(current_time=self._time_stepping.current_time)
