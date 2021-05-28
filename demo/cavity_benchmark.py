@@ -104,5 +104,5 @@ class CavityProblem(StationaryNavierStokesProblem):
 
 
 if __name__ == "__main__":
-    cavity_flow = CavityProblem(25)
+    cavity_flow = CavityProblem(50)
     cavity_flow.solve_problem()
