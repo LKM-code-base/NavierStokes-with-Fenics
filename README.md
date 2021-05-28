@@ -2,25 +2,20 @@
 
 # Flow problems with FEniCS
 
-Files and codes of solving flow problems with FEniCS.
+## Two phase flow 
+I only uploaded the code of Dambreak, and there is still a problem in the 'A droplet in dripping process' code. I will try to find the problem again. If I still can’t find the problem, I will upload it too.
+
+## Dam break result
+![Dambreak2](https://user-images.githubusercontent.com/43983030/120049844-95836b80-c01b-11eb-995a-43f4cd4dce2d.gif)
 
 
-ToDo list:
+## ToDo list:
 
-- [ ] add channel flow test (periodic bcs and pressure gradient)
-- [ ] add Couette flow test (component-wise boundary conditions)
-- [ ] add Taylor-Green vortex
-- [ ] modify computation of potential 
-- [ ] add computation of the stream function
-- [ ] add serialization and restart features
-- [ ] simplify specification of boundary conditions
+- [ ] Modify the current codes
+- [ ] According to Sebastian's codes structure, change my script program and write a simple N_S equation solver and a simple LevelSetFunction solver in an object-oriented structure, and can be called in the main program (As an exercise in object-oriented programming, start by modifying your own program).
+- [ ] The physical equations in the program may need modify
+- [ ] After the modification, find a dambreak benchmark for comparison 
+- [ ] Simulation free-falling laminar jet
+- [ ] Add electric field
 
 
-Milestones:
-- [x] stationary lid-driven cavity
-- [x] stationary gravity-driven pipe flow
-- [ ] channel flow with periodic boundary conditions
-- [ ] Couette flow
-- [ ] instationary gravity-driven pipe flow
-- [ ] DFG benchmark problem
-- [ ] two-phase flow solver / breaking dam problem
