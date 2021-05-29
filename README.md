@@ -15,7 +15,7 @@ I only uploaded the code of Dambreak, and there is still a problem in the 'A dro
 - [ ] According to Sebastian's codes structure, change my script program and write a simple N_S equation solver and a simple LevelSetFunction solver in an object-oriented structure, and can be called in the main program (As an exercise in object-oriented programming, start by modifying my own program).
 - [ ] The physical equations in the program may need modify
 - [ ] After the modification, find a dambreak benchmark for comparison 
-- [ ] Simulation free-falling laminar jet
+- [ ] Simulate free-falling laminar jet
 - [ ] Add electric field
 
 
