@@ -10,6 +10,8 @@ from auxiliary_methods import extract_all_boundary_markers
 from imex_time_stepping import IMEXTimeStepping
 from imex_time_stepping import IMEXType
 
+import math
+
 from navier_stokes_solver import VelocityBCType
 from navier_stokes_solver import PressureBCType
 from navier_stokes_solver import TractionBCType
@@ -38,6 +40,23 @@ class ProblemBase:
         if not hasattr(self, "_additional_field_output"):
             self._additional_field_output = []
         self._additional_field_output.append(field)
+
+    def _create_xdmf_file(self):
+
+        # get filename
+        fname = self._get_filename()
+        assert fname.endswith(".xdmf")
+
+        # create results directory
+        assert hasattr(self, "_results_dir")
+        if not path.exists(self._results_dir):
+            os.makedirs(self._results_dir)
+
+        self._xdmf_file = dlfn.XDMFFile(fname)
+        self._xdmf_file.parameters["flush_output"] = True
+        self._xdmf_file.parameters["functions_share_mesh"] = True
+        self._xdmf_file.parameters["rewrite_function_mesh"] = False
+
 
     def _compute_vorticity(self):
         """
@@ -224,31 +243,20 @@ class ProblemBase:
         are output to the file.
         """
         assert isinstance(current_time, float)
-
-        # get filename
-        fname = self._get_filename()
-        assert fname.endswith(".xdmf")
-
-        # create results directory
-        assert hasattr(self, "_results_dir")
-        if not path.exists(self._results_dir):
-            os.makedirs(self._results_dir)
-
+        # create xdmf file
+        if not hasattr(self, "_xdmf_file"):
+            self._create_xdmf_file()
         # get solution
         solver = self._get_solver()
         solution = solver.solution
-
         # serialize
-        with dlfn.XDMFFile(fname) as results_file:
-            results_file.parameters["flush_output"] = True
-            results_file.parameters["functions_share_mesh"] = True
-            solution_components = solution.split()
-            for index, name in solver.sub_space_association.items():
-                solution_components[index].rename(name, "")
-                results_file.write(solution_components[index], current_time)
-            if hasattr(self, "_additional_field_output"):
-                for field in self._additional_field_output:
-                    results_file.write(field, current_time)
+        solution_components = solution.split()
+        for index, name in solver.sub_space_association.items():
+            solution_components[index].rename(name, "")
+            self._xdmf_file.write(solution_components[index], current_time)
+        if hasattr(self, "_additional_field_output"):
+            for field in self._additional_field_output:
+                self._xdmf_file.write(field, current_time)
 
     def postprocess_solution(self):  # pragma: no cover
         """
@@ -521,9 +529,8 @@ class InstationaryNavierStokesProblem(ProblemBase):
         Maximum number of non-linear Picard iterations.
     """
     def __init__(self, main_dir=None, start_time=0.0, end_time=1.0,
-                 desired_start_time_step=0.0, n_max_steps=1000,
-                 tol=1e-10, maxiter=50,
-                 tol_picard=1e-2, maxiter_picard=10):
+                 desired_start_time_step=0.1, n_max_steps=1000,
+                 tol=1e-10, maxiter=50):
         """
         Constructor of the class.
         """
@@ -532,20 +539,17 @@ class InstationaryNavierStokesProblem(ProblemBase):
         self._start_time = start_time
 
         # input check
-        assert all(isinstance(i, int) and i > 0 for i in (maxiter, maxiter_picard, n_max_steps))
-        assert all(isinstance(i, float) and i > 0.0 for i in (tol_picard, tol_picard,
-                                                              start_time, end_time,
-                                                              desired_start_time_step))
+        assert all(isinstance(i, int) and i > 0 for i in (maxiter, n_max_steps))
+        assert all(isinstance(i, float) and i >= 0.0 for i in (start_time, end_time,
+                                                               desired_start_time_step))
 
         # set numerical tolerances
         self._start_time = start_time
         self._end_time = end_time
+        self._desired_start_time_step = desired_start_time_step
         self._n_max_steps = n_max_steps
         self._tol = tol
         self._maxiter = maxiter
-
-        self._tol_picard = tol_picard
-        self._maxiter_picard = maxiter_picard
 
         # setting discretization parameters
         # polynomial degree
@@ -554,17 +558,46 @@ class InstationaryNavierStokesProblem(ProblemBase):
         q_deg = self._p_deg + 2
         dlfn.parameters["form_compiler"]["quadrature_degree"] = q_deg
 
-    def _compute_cfl_number(self):
+    def _compute_cfl_number(self, step_size):
         """
         Class method computing the maxmimum local CFL number.
         """
-        raise NotImplementedError()
+        velocity = self._get_velocity()
+        degree = velocity.ufl_element().degree()
+        assert degree >= 0
+
+        # discontinuous space
+        cell = self._mesh.ufl_cell()
+        elemDG = dlfn.FiniteElement("DG", cell, 0)
+        spaceDG = dlfn.FunctionSpace(self._mesh, elemDG)
+        # expression for local CFL number
+        h = dlfn.CellDiameter(self._mesh)
+        velocity_magnitude = dlfn.sqrt(dlfn.dot(velocity, velocity))
+        cfl_expression = float(degree) * velocity_magnitude * dlfn.Constant(step_size) / h
+        dV = dlfn.Measure("dx", domain=self._mesh)
+        # assemble vector containing local CFL number
+        cfl = dlfn.assemble(cfl_expression * dlfn.TestFunction(spaceDG) * dV)
+        # return maximum value
+        max_cfl = dlfn.norm(cfl, "linf")
+        assert math.isfinite(max_cfl)
+        assert max_cfl >= 0.0
+        dlfn.info("Current CFL number = {0:6.2e}".format(max_cfl))
+
+        return max_cfl
 
     def _set_next_step_size(self):
         """
         Class method setting the size of the next time step.
         """
-        raise NotImplementedError()
+        assert hasattr(self, "_time_stepping")
+        next_step_size = self._time_stepping.get_next_step_size()
+        assert next_step_size > 0.0
+        assert math.isfinite(next_step_size)
+
+        cfl = self._compute_cfl_number(next_step_size)
+        if cfl > 1.0:
+            next_step_size /= cfl
+            self._time_stepping.set_desired_next_step_size(next_step_size)
 
     def _get_filename(self):
         """
@@ -700,13 +733,13 @@ class InstationaryNavierStokesProblem(ProblemBase):
             self.set_parameters()
 
         # set initial condition
-        self.set_initial_condition(self)
+        self.set_initial_conditions()
 
         # create IMEX object
         assert hasattr(self, "_imex_type")
         self._time_stepping = IMEXTimeStepping(self._start_time, self._end_time,
                                                self._imex_type,
-                                               desired_start_time_step=self._start_time_step)
+                                               desired_start_time_step=self._desired_start_time_step)
 
         # create solver object
         if not hasattr(self, "_navier_stokes_solver"):
@@ -715,12 +748,6 @@ class InstationaryNavierStokesProblem(ProblemBase):
                                    self._time_stepping,
                                    self._tol, self._maxiter)
 
-        # pass boundary conditions
-        self._navier_stokes_solver.set_boundary_conditions(self._bcs)
-
-        # pass boundary conditions
-        self._navier_stokes_solver.set_initial_conditions(self._initial_conditions)
-
         # pass dimensionless numbers
         self._navier_stokes_solver.set_dimensionless_numbers(self._Re, self._Fr)
 
@@ -728,15 +755,26 @@ class InstationaryNavierStokesProblem(ProblemBase):
         if hasattr(self, "_body_force"):
             self._navier_stokes_solver.set_body_force(self._body_force)
 
+        # pass boundary conditions
+        assert hasattr(self, "_bcs")
+        self._navier_stokes_solver.set_boundary_conditions(self._bcs)
+
+        # pass boundary conditions
+        assert hasattr(self, "_initial_conditions")
+        self._navier_stokes_solver.set_initial_conditions(self._initial_conditions)
+        self._write_xdmf_file(current_time=0.0)
+
         dlfn.info("Solving problem with Re = {0:.2f} and "
                   "Fr = {1:0.2f} until time = {2:0.2f}"
                   .format(self._Re, self._Fr, self._time_stepping.end_time))
 
         # time loop
-        while (not self._time_stepping.is_at_end()) or\
-                self._time_stepping.step_number > self._n_max_steps:
+        assert hasattr(self, "_postprocessing_frequency")
+        assert hasattr(self, "_output_frequency")
+        while not self._time_stepping.is_at_end() and \
+                self._time_stepping.step_number <= self._n_max_steps:
             # set next step size
-            self._set_desired_next_step_size()
+            self._set_next_step_size()
             # update coefficients
             self._time_stepping.update_coefficients()
             # print info
@@ -748,9 +786,9 @@ class InstationaryNavierStokesProblem(ProblemBase):
             self._navier_stokes_solver.advance_time()
             # postprocess solution
             if self._postprocessing_frequency > 0:
-                if self._time_stepping.step_number % self._postprocessing_frequency:
+                if self._time_stepping.step_number % self._postprocessing_frequency == 0:
                     self.postprocess_solution()
             # write XDMF-files
             if self._output_frequency > 0:
-                if self._time_stepping.step_number % self._output_frequency:
+                if self._time_stepping.step_number % self._output_frequency == 0:
                     self._write_xdmf_file(current_time=self._time_stepping.current_time)

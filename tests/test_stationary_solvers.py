@@ -6,6 +6,7 @@ from navier_stokes_problem import VelocityBCType
 from grid_generator import hyper_cube
 from grid_generator import open_hyper_cube
 from grid_generator import HyperCubeBoundaryMarkers
+
 dlfn.set_log_level(20)
 
 
@@ -53,7 +54,8 @@ class GravityDrivenFlowProblem(StationaryNavierStokesProblem):
         # velocity boundary conditions
         self._bcs = ((VelocityBCType.no_slip, HyperCubeBoundaryMarkers.left.value, None),
                      (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.right.value, None),
-                     (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.bottom.value, None))
+                     (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.bottom.value, None),
+                     (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.top.value, None))
 
     def postprocess_solution(self):
         pressure = self._get_pressure()

@@ -422,7 +422,6 @@ class StationaryNavierStokesSolver(NavierStokesSolverBase):
     _sub_space_association = {0: "velocity", 1: "pressure"}
     _field_association = {value: key for key, value in _sub_space_association.items()}
     _apply_boundary_traction = False
-    _null_scalar = dlfn.Constant(0.)
 
     def __init__(self, mesh, boundary_markers, tol=1e-10, maxiter=50,
                  tol_picard=1e-2, maxiter_picard=10):
@@ -485,7 +484,7 @@ class StationaryNavierStokesSolver(NavierStokesSolverBase):
         # add body force term
         if hasattr(self, "_body_force"):
             assert hasattr(self, "_Fr"), "Froude number is not specified."
-            F_momentum -= dot(self._body_force, w) * dV
+            F_momentum -=  dot(self._body_force, w) / self._Fr**2 * dV
 
         # add boundary tractions
         if hasattr(self, "_traction_bcs"):
@@ -583,6 +582,9 @@ class StationaryNavierStokesSolver(NavierStokesSolverBase):
 
 
 class InstationaryNavierStokesSolver(NavierStokesSolverBase):
+    _sub_space_association = {0: "velocity", 1: "pressure"}
+    _field_association = {value: key for key, value in _sub_space_association.items()}
+
     def __init__(self, mesh, boundary_markers, time_stepping, tol, max_iter):
 
         super().__init__(mesh, boundary_markers)
@@ -603,7 +605,7 @@ class InstationaryNavierStokesSolver(NavierStokesSolverBase):
 
     def _advance_solution(self):
         """Advance solution objects in time."""
-        assert hasattr(self, "-old_old_solution")
+        assert hasattr(self, "_old_old_solution")
         assert hasattr(self, "_old_solution")
         assert hasattr(self, "_solution")
         self._old_old_solution.assign(self._old_solution)
@@ -625,7 +627,16 @@ class InstationaryNavierStokesSolver(NavierStokesSolverBase):
         assert hasattr(self, "_mesh")
         assert hasattr(self, "_boundary_markers")
 
-        self._setup_function_spaces()
+        if not all(hasattr(self, attr) for attr in ("_Wh",
+                                                    "_solution",
+                                                    "_old_solution",
+                                                    "_old_old_solution")):
+            self._setup_function_spaces()
+
+        if not all(hasattr(self, attr) for attr in ("_next_step_size",
+                                                    "_alpha")):
+            self._update_time_stepping_coefficients()
+
         self._setup_boundary_conditions()
 
         # creating test and trial functions
@@ -668,16 +679,16 @@ class InstationaryNavierStokesSolver(NavierStokesSolverBase):
         F_momentum = (
                 (alpha[0] * dot(velocity, w)
                     + alpha[1] * dot(old_velocity, w)
-                    + alpha[1] * dot(old_old_velocity, w)
+                    + alpha[2] * dot(old_old_velocity, w)
                 ) / k
                 + c(velocity, velocity, w) - b(w, pressure)
-                + (1. / Re) * a(velocity, w)
+                + a(velocity, w) / Re
                 ) * dV
 
         # add body force term
         if hasattr(self, "_body_force"):
             assert hasattr(self, "_Fr"), "Froude number is not specified."
-            F_momentum -= dot(self._body_force, w) * dV
+            F_momentum -= dot(self._body_force, w) / self._Fr**2 * dV
 
         # add boundary tractions
         if hasattr(self, "_traction_bcs"):
@@ -710,6 +721,13 @@ class InstationaryNavierStokesSolver(NavierStokesSolverBase):
 
         self._F = F_mass + F_momentum
 
+        # linearization using Picard's method
+        J_picard_mass = -b(v, q) * dV
+        J_picard_momentum = (
+                alpha[0] * dot(v, w) / k
+                + c(velocity, v, w) - b(w, p) + a(v, w) / Re) * dV
+        self._J_picard = J_picard_mass + J_picard_momentum
+
         # linearization using Newton's method
         self._J_newton = dlfn.derivative(self._F, self._solution)
 
@@ -720,6 +738,11 @@ class InstationaryNavierStokesSolver(NavierStokesSolverBase):
         self._nonlinear_solver = dlfn.NewtonSolver(comm, linear_solver, factory)
         self._nonlinear_solver.parameters["absolute_tolerance"] = self._tol
         self._nonlinear_solver.parameters["maximum_iterations"] = self._maxiter
+
+        # setup problem with Picard linearization
+        self._picard_problem = CustomNonlinearProblem(self._F,
+                                                      self._dirichlet_bcs,
+                                                      self._J_picard)
 
         # setup problem with Newton linearization
         self._newton_problem = CustomNonlinearProblem(self._F,
@@ -801,7 +824,63 @@ class InstationaryNavierStokesSolver(NavierStokesSolverBase):
         self._advance_solution()
 
     def set_initial_conditions(self, initial_conditions):
-        raise NotImplementedError()
+        """Setup the initial conditions of the problem."""
+        # input check
+        assert isinstance(initial_conditions, dict)
+        assert "velocity" in initial_conditions
+        # check that function spaces exist
+        if not all(hasattr(self, attr) for attr in ("_Wh",
+                                            "_solution",
+                                            "_old_solution",
+                                            "_old_old_solution")):
+            self._setup_function_spaces()
+        # split functions
+        old_velocity, old_pressure = self._old_solution.split()
+
+        # velocity part
+        # extract velocity initial condition
+        velocity_condition = initial_conditions["velocity"]
+        # check format of initial condition
+        assert isinstance(velocity_condition, (dlfn.Expression, tuple, list))
+        if isinstance(velocity_condition, dlfn.Expression):
+            # check rank of expression
+            assert velocity_condition.value_rank() == 1
+            velocity_expression = velocity_condition
+        elif isinstance(velocity_condition, (tuple, list)):
+            # size of tuple or list
+            assert len(velocity_condition) == self._space_dim
+            # type of the entries
+            assert all(isinstance(x, float) for x in velocity_condition)
+            velocity_expression = dlfn.Constant(velocity_condition)
+
+        # project and assign
+        subspace_index = self._field_association["velocity"]
+        velocity_space = dlfn.FunctionSpace(self._Wh.mesh(),
+                                            self._Wh.sub(subspace_index).ufl_element())
+        projected_velocity_condition = dlfn.project(velocity_expression,
+                                                    velocity_space)
+        dlfn.assign(old_velocity, projected_velocity_condition)
+
+        # pressure part
+        if "pressure" in initial_conditions:
+            pressure_condition = initial_conditions["pressure"]
+            # check format of initial condition
+            assert isinstance(pressure_condition, (dlfn.Expression, float))
+            if isinstance(pressure_condition, dlfn.Expression):
+                # check rank of expression
+                assert pressure_condition.value_rank() == 0
+                pressure_expression = pressure_condition
+            else:
+                pressure_expression = dlfn.Constant(pressure_condition)
+            # project and assign
+            subspace_index = self._field_association["pressure"]
+            pressure_space = dlfn.FunctionSpace(self._Wh.mesh(),
+                                                self._Wh.sub(subspace_index).ufl_element())
+            projected_pressure_condition = dlfn.project(pressure_expression,
+                                                        pressure_space )
+
+            dlfn.assign(old_pressure, projected_pressure_condition)
+        # TODO: Implement Poisson equation for the initial pressure
 
     def solve(self):
         """Solves the nonlinear problem."""
@@ -810,10 +889,36 @@ class InstationaryNavierStokesSolver(NavierStokesSolverBase):
                                                     "_newton_problem",
                                                     "_solution")):
             self._setup_problem()
+
         # update time
         self._set_time()
         # update coefficients if necessary
         if self._time_stepping.coefficients_changed:
             self._update_time_stepping_coefficients()
+
+        # compute initial residual
+        residual_vector = dlfn.Vector(self._solution.vector())
+        self._picard_problem.F(residual_vector, self._solution.vector())
+        residual = residual_vector.norm("l2")
+
+        # correct initial tolerance if necessary
+        # determine order of magnitude
+        order = math.floor(math.log10(residual))
+        # specify corrected tolerance
+        tol_picard = (residual / 10.0**order ) * 10.0**(order - 1.0)
+
+        # Picard iteration
+        dlfn.info("Starting Picard iteration...")
+        self._nonlinear_solver.parameters["maximum_iterations"] = 10
+        self._nonlinear_solver.parameters["absolute_tolerance"] = tol_picard
+        self._nonlinear_solver.parameters["relative_tolerance"] = 1.0e-1
+        self._nonlinear_solver.parameters["error_on_nonconvergence"] = False
+        self._nonlinear_solver.solve(self._picard_problem, self._solution.vector())
+
         # solve problem
+        dlfn.info("Starting Newton iteration...")
+        self._nonlinear_solver.parameters["absolute_tolerance"] = self._tol
+        self._nonlinear_solver.parameters["maximum_iterations"] = self._maxiter
+        self._nonlinear_solver.parameters["relative_tolerance"] = 1.0e1 * self._tol
+        self._nonlinear_solver.parameters["error_on_nonconvergence"] = True
         self._nonlinear_solver.solve(self._newton_problem, self._solution.vector())
