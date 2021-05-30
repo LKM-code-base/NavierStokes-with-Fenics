@@ -52,6 +52,10 @@ class HyperCubeBoundaryMarkers(Enum):
     opening = auto()
 
 
+
+HyperRectangleBoundaryMarkers = HyperCubeBoundaryMarkers
+
+
 class CircularBoundary(dlfn.SubDomain):
     def __init__(self, **kwargs):
         super().__init__()
@@ -153,6 +157,60 @@ def hyper_cube(dim, n_points=10):
         gamma06.mark(facet_marker, BoundaryMarkers.front.value)
 
     return mesh, facet_marker
+
+
+def hyper_rectangle(first_point, second_point, n_points=10):
+    assert isinstance(first_point, (tuple, list))
+    assert isinstance(second_point, (tuple, list))
+    dim = len(first_point)
+    assert dim == 2 or dim == 3
+    assert len(second_point) == dim
+    assert all(all(isinstance(x, float) for x in p) for p in (first_point, second_point))
+    assert all(y - x > 0.0 for x, y in zip(first_point, second_point))
+    corner_points = (dlfn.Point(*first_point), dlfn.Point(*second_point))
+
+    assert isinstance(n_points, (int, tuple, list))
+    if isinstance(n_points, (tuple, list)):
+        assert all(isinstance(n, int) and n > 0 for n in n_points)
+        assert len(n_points) == dim
+    else:
+        n_points > 0
+        n_points = (n_points, ) * dim
+
+    # mesh generation
+    if dim == 2:
+
+        mesh = dlfn.RectangleMesh(*corner_points, *n_points)
+    else:
+        mesh = dlfn.BoxMesh(*corner_points, *n_points)
+    assert dim == mesh.topology().dim()
+
+    # subdomains for boundaries
+    facet_marker = dlfn.MeshFunction("size_t", mesh, dim - 1)
+    facet_marker.set_all(0)
+
+    # mark boundaries
+    BoundaryMarkers = HyperCubeBoundaryMarkers
+
+    gamma01 = dlfn.CompiledSubDomain("near(x[0], val) && on_boundary", val = first_point[0])
+    gamma02 = dlfn.CompiledSubDomain("near(x[0], val) && on_boundary", val = second_point[0])
+    gamma03 = dlfn.CompiledSubDomain("near(x[1], val) && on_boundary", val = first_point[1])
+    gamma04 = dlfn.CompiledSubDomain("near(x[1], val) && on_boundary", val = second_point[1])
+
+    gamma01.mark(facet_marker, BoundaryMarkers.left.value)
+    gamma02.mark(facet_marker, BoundaryMarkers.right.value)
+    gamma03.mark(facet_marker, BoundaryMarkers.bottom.value)
+    gamma04.mark(facet_marker, BoundaryMarkers.top.value)
+
+    if dim == 3:
+        gamma05 = dlfn.CompiledSubDomain("near(x[2], val) && on_boundary", val = first_point[2])
+        gamma06 = dlfn.CompiledSubDomain("near(x[2], val) && on_boundary", val = second_point[2])
+
+        gamma05.mark(facet_marker, BoundaryMarkers.back.value)
+        gamma06.mark(facet_marker, BoundaryMarkers.front.value)
+
+    return mesh, facet_marker
+
 
 
 def open_hyper_cube(dim, n_points=10, openings=None):
