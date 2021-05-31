@@ -1,6 +1,6 @@
 """
 Dam Break by yiming liu
-
+The algorithm used in this script is described in Michal Habera's thesis in 2015
 2021/5/28
 """
 
@@ -18,7 +18,7 @@ class CharacterLevelSetFunction(UserExpression):
 	'''
 	initialize the level set function
 	Firstly, determine the position of an arbitrary point in the domain
-	Secondly, calculate the distance to the minimum distance to the interface
+	Secondly, calculate the minimum distance to the interface
 	Finally, calculate the CharacterLevelSetFunction, 
 	in the interface =1, out the interface = 0, on the transition area of interface it is continuous
 	'''
@@ -56,10 +56,7 @@ res=50 #resolution
 scale=1
 mesh = RectangleMesh(Point(0,0), Point(scale,scale),res,res,"crossed")
 plot(mesh)
-n = FacetNormal(mesh)
 
-i, j, k, l = indices(4)
-delta = Identity(2)
 
 scalar = FiniteElement('P', mesh.ufl_cell(), 1) #pressure level set function
 vector = VectorElement('P', mesh.ufl_cell(), 2) #velocity
@@ -181,23 +178,29 @@ dts=0.5*pow(scale/res,1.1) #sub-time step related to the mesh resolution
 F_reinitialization = ( (1/dts)*inner(phi_cr - phi_cr0, del_phi_c) - inner(d(phi_cr, phi_cr0)*(1-d(phi_cr, phi_cr0)), dot(n_phi, grad(del_phi_c))) + epsilon*inner( grad(d(phi_cr, phi_cr0)), grad(del_phi_c))  ) * dx
 
 #%%
+start_time=time.time()
 while t < t_end:
 	t += dt
 	nn+= 1
 	begin("Computing interface normal")
 	solve(F_n_phi==0, n_phi)
+	end()
 	
 	begin("Computing tentative velocity")
 	solve(F_momentum==0, u_t, bc2)
+	end()
 	
 	begin("Computing pressure correction")
 	solve(F_pressure==0, p, bc)
+	end()
 	
 	begin("Computing velocity correction")
 	solve(F_velocity==0, u_c, bc2)
+	end()
 		
 	begin("Computing Level Set Fucntion")
 	solve(F_advection==0, phi_c, bc)
+	end()
 	
 	nreinitial=0
 	maxstep=1000
@@ -215,6 +218,7 @@ while t < t_end:
 			if nreinitial==1: print('Error at substep 1: %7f' % error)
 			
 		phi_cr0.assign(phi_cr)
+	end()
 		
 	if processID == 0: print('Error in the end: %7f' % error)
 	if processID == 0: print('Number of iterations for reinitialization: %d' % nreinitial)
@@ -233,7 +237,8 @@ while t < t_end:
 		file_pp << (p0,t)
 		file_c << (phi_c0,t)
 		file_vv << (u_c,t)
-
+total_time = time.time()-start_time
+if processID == 0: print("total time taken: %.3f s" %total_time)
 file_pp << (p0,t)
 file_c << (phi_c0,t)
 file_vv << (u_c,t)
