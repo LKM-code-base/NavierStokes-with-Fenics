@@ -14,7 +14,6 @@ import math
 
 from navier_stokes_solver import VelocityBCType
 from navier_stokes_solver import PressureBCType
-from navier_stokes_solver import TractionBCType
 from navier_stokes_solver import StationaryNavierStokesSolver as StationarySolver
 from navier_stokes_solver import InstationaryNavierStokesSolver as InstationarySolver
 
@@ -56,7 +55,6 @@ class ProblemBase:
         self._xdmf_file.parameters["flush_output"] = True
         self._xdmf_file.parameters["functions_share_mesh"] = True
         self._xdmf_file.parameters["rewrite_function_mesh"] = False
-
 
     def _compute_vorticity(self):
         """

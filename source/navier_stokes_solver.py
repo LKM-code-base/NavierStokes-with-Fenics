@@ -484,7 +484,7 @@ class StationaryNavierStokesSolver(NavierStokesSolverBase):
         # add body force term
         if hasattr(self, "_body_force"):
             assert hasattr(self, "_Fr"), "Froude number is not specified."
-            F_momentum -=  dot(self._body_force, w) / self._Fr**2 * dV
+            F_momentum -= dot(self._body_force, w) / self._Fr**2 * dV
 
         # add boundary tractions
         if hasattr(self, "_traction_bcs"):
@@ -677,13 +677,14 @@ class InstationaryNavierStokesSolver(NavierStokesSolverBase):
 
         # momentum balance
         F_momentum = (
-                (alpha[0] * dot(velocity, w)
-                    + alpha[1] * dot(old_velocity, w)
-                    + alpha[2] * dot(old_old_velocity, w)
-                ) / k
-                + c(velocity, velocity, w) - b(w, pressure)
-                + a(velocity, w) / Re
-                ) * dV
+                        (
+                            alpha[0] * dot(velocity, w)
+                            + alpha[1] * dot(old_velocity, w)
+                            + alpha[2] * dot(old_old_velocity, w)
+                        ) / k
+                        + c(velocity, velocity, w) - b(w, pressure)
+                        + a(velocity, w) / Re
+                        ) * dV
 
         # add body force term
         if hasattr(self, "_body_force"):
@@ -830,9 +831,9 @@ class InstationaryNavierStokesSolver(NavierStokesSolverBase):
         assert "velocity" in initial_conditions
         # check that function spaces exist
         if not all(hasattr(self, attr) for attr in ("_Wh",
-                                            "_solution",
-                                            "_old_solution",
-                                            "_old_old_solution")):
+                                                    "_solution",
+                                                    "_old_solution",
+                                                    "_old_old_solution")):
             self._setup_function_spaces()
         # split functions
         old_velocity, old_pressure = self._old_solution.split()
@@ -877,7 +878,7 @@ class InstationaryNavierStokesSolver(NavierStokesSolverBase):
             pressure_space = dlfn.FunctionSpace(self._Wh.mesh(),
                                                 self._Wh.sub(subspace_index).ufl_element())
             projected_pressure_condition = dlfn.project(pressure_expression,
-                                                        pressure_space )
+                                                        pressure_space)
 
             dlfn.assign(old_pressure, projected_pressure_condition)
         # TODO: Implement Poisson equation for the initial pressure
@@ -905,7 +906,7 @@ class InstationaryNavierStokesSolver(NavierStokesSolverBase):
         # determine order of magnitude
         order = math.floor(math.log10(residual))
         # specify corrected tolerance
-        tol_picard = (residual / 10.0**order ) * 10.0**(order - 1.0)
+        tol_picard = (residual / 10.0**order) * 10.0**(order - 1.0)
 
         # Picard iteration
         dlfn.info("Starting Picard iteration...")

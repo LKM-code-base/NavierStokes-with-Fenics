@@ -52,7 +52,6 @@ class HyperCubeBoundaryMarkers(Enum):
     opening = auto()
 
 
-
 HyperRectangleBoundaryMarkers = HyperCubeBoundaryMarkers
 
 
@@ -192,10 +191,10 @@ def hyper_rectangle(first_point, second_point, n_points=10):
     # mark boundaries
     BoundaryMarkers = HyperCubeBoundaryMarkers
 
-    gamma01 = dlfn.CompiledSubDomain("near(x[0], val) && on_boundary", val = first_point[0])
-    gamma02 = dlfn.CompiledSubDomain("near(x[0], val) && on_boundary", val = second_point[0])
-    gamma03 = dlfn.CompiledSubDomain("near(x[1], val) && on_boundary", val = first_point[1])
-    gamma04 = dlfn.CompiledSubDomain("near(x[1], val) && on_boundary", val = second_point[1])
+    gamma01 = dlfn.CompiledSubDomain("near(x[0], val) && on_boundary", val=first_point[0])
+    gamma02 = dlfn.CompiledSubDomain("near(x[0], val) && on_boundary", val=second_point[0])
+    gamma03 = dlfn.CompiledSubDomain("near(x[1], val) && on_boundary", val=first_point[1])
+    gamma04 = dlfn.CompiledSubDomain("near(x[1], val) && on_boundary", val=second_point[1])
 
     gamma01.mark(facet_marker, BoundaryMarkers.left.value)
     gamma02.mark(facet_marker, BoundaryMarkers.right.value)
@@ -203,14 +202,13 @@ def hyper_rectangle(first_point, second_point, n_points=10):
     gamma04.mark(facet_marker, BoundaryMarkers.top.value)
 
     if dim == 3:
-        gamma05 = dlfn.CompiledSubDomain("near(x[2], val) && on_boundary", val = first_point[2])
-        gamma06 = dlfn.CompiledSubDomain("near(x[2], val) && on_boundary", val = second_point[2])
+        gamma05 = dlfn.CompiledSubDomain("near(x[2], val) && on_boundary", val=first_point[2])
+        gamma06 = dlfn.CompiledSubDomain("near(x[2], val) && on_boundary", val=second_point[2])
 
         gamma05.mark(facet_marker, BoundaryMarkers.back.value)
         gamma06.mark(facet_marker, BoundaryMarkers.front.value)
 
     return mesh, facet_marker
-
 
 
 def open_hyper_cube(dim, n_points=10, openings=None):
