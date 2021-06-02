@@ -29,7 +29,6 @@ class ChannelFlowProblem(InstationaryNavierStokesProblem):
     def setup_mesh(self):
         # create mesh
         self._mesh, self._boundary_markers = hyper_rectangle((0.0, 0.0), (10.0, 1.0), (100, 10))
-        self.write_boundary_markers()
 
     def set_initial_conditions(self):
         self._initial_conditions = dict()
@@ -72,7 +71,6 @@ class GravityDrivenFlowProblem(InstationaryNavierStokesProblem):
                     ("bottom", (0.7, 0.0), 0.05),
                     ("top", (0.5, 1.0), 0.8))
         self._mesh, self._boundary_markers = open_hyper_cube(2, self._n_points, openings)
-        self.write_boundary_markers()
 
     def set_initial_conditions(self):
         self._initial_conditions = dict()
