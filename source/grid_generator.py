@@ -1,17 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
+import dolfin as dlfn
+from enum import Enum, auto
+import glob
+import math
+from mshr import Sphere, Circle, generate_mesh
 import os
 from os import path
-import glob
-import subprocess
-
-from enum import Enum, auto
-
-import math
-
-import dolfin as dlfn
-from mshr import Sphere, Circle, generate_mesh
 
 
 class GeometryType(Enum):
@@ -72,7 +67,7 @@ class CircularBoundary(dlfn.SubDomain):
 
 def spherical_shell(dim, radii, n_refinements=0):
     """
-    Creates the mesh of a spherical shell using the mshr module.
+    Create a spherical shell using the mshr module.
     """
     assert isinstance(dim, int)
     assert dim == 2 or dim == 3
@@ -119,6 +114,9 @@ def spherical_shell(dim, radii, n_refinements=0):
 
 
 def hyper_cube(dim, n_points=10):
+    """
+    Create a unit hyper cube with an equidistant mesh size.
+    """
     assert isinstance(dim, int)
     assert dim == 2 or dim == 3
     assert isinstance(n_points, int) and n_points >= 0
@@ -159,6 +157,10 @@ def hyper_cube(dim, n_points=10):
 
 
 def hyper_rectangle(first_point, second_point, n_points=10):
+    """
+    Create a hyper rectangle where the `first_point` and the `second_point`
+    are two diagonally opposite corner points.
+    """
     assert isinstance(first_point, (tuple, list))
     assert isinstance(second_point, (tuple, list))
     dim = len(first_point)
@@ -357,56 +359,72 @@ def open_hyper_cube(dim, n_points=10, openings=None):
     return mesh, facet_markers
 
 
-def converging_diverging_pipe():
+def _extract_facet_markers(geo_filename):
+    """Extract facet markers from a geo-file and returns them as a dictionary.
     """
-    Generates the mesh of converging-diverging pipe from the gmsh-file
-    `converging_diverging_pipe.geo`.
+    # input check
+    assert isinstance(geo_filename, str)
+    assert path.exists(geo_filename)
+    assert geo_filename.endswith(".geo")
+    # read file
+    facet_markers = dict()
+    with open(geo_filename, "r") as file:
+        lines = file.readlines()
+        for line in lines:
+            if "Physical Curve" in line or "Physical Line" in line :
+                line = line[line.index("(")+1:line.index(")")]
+                assert "," in line
+                description, number = line.split(",")
+                # facet id
+                number = number.strip(" ")
+                assert number.isnumeric()
+                facet_id = int(number)
+                # boundary description
+                description = description.strip(" ")
+                description = description.strip("'")
+                description = description.strip('"')
+                assert description.replace(" ", "").isalpha()
+                # add to dictionary
+                assert description not in facet_markers
+                facet_markers[description] = facet_id
+
+    return facet_markers
+
+
+def channel_with_cylinder():
+    """Create a mesh of a channel with a cylinder.
+
+    This script reads a gmsh file. This file must be located inside the project
+    directory. If this script is used inside the docker container, the
+    associated xdmf files must already exist.
     """
-    # define location of gmsh files
-    fname = "converging_diverging_pipe.geo"
-    geo_files = glob.glob("./../*/*.geo", recursive=True)
+    # locate geo file
+    fname = "DFGBenchmark.geo"
+    geo_files = glob.glob("../*/*/*.geo", recursive=True)
     for file in geo_files:
         if fname in file:
-            geo_file = path.join(os.getcwd(), file[2:])
+            geo_file = file
             break
     assert path.exists(geo_file)
-    msh_file = geo_file.replace(".geo", ".msh")
 
-    # check if msh file exists
-    if not path.exists(msh_file):
-        subprocess.run(["gmsh", geo_file, "-2", "-o " + msh_file], check=True)
-    assert path.exists(msh_file)
+    facet_marker_map = _extract_facet_markers(geo_file)
+    # define xdmf files
+    filename = geo_file[:geo_file.index(".geo")]
+    xdmf_facet_marker_file = filename + "_facet_markers.xdmf"
+    xdmf_file = geo_file.replace(".geo", ".xdmf")
+    # check if xdmf files exist
+    if not path.exists(xdmf_file) or not path.exists(xdmf_facet_marker_file):
+        from grid_tools import generate_xdmf_mesh
+        generate_xdmf_mesh(geo_file)
+    # read xdmf files
+    mesh = dlfn.Mesh()
+    with dlfn.XDMFFile(xdmf_file) as infile:
+        infile.read(mesh)
+    # read facet markers
+    space_dim = mesh.geometry().dim()
+    mvc = dlfn.MeshValueCollection("size_t", mesh, space_dim - 1)
+    with dlfn.XDMFFile(xdmf_facet_marker_file) as infile:
+        infile.read(mvc, "facet_markers")
+    facet_markers = dlfn.cpp.mesh.MeshFunctionSizet(mesh, mvc)
 
-    # convert msh files
-    xml_file = geo_file.replace(".geo", ".xml")
-    subprocess.run(["dolfin-convert", msh_file, xml_file], check=True)
-    assert path.exists(msh_file)
-
-    physical_regions_xml_file = xml_file.replace(".xml", "_physical_region.xml")
-    assert path.exists(physical_regions_xml_file)
-
-    BoundaryMarkers = SymmetricPipeBoundaryMarkers
-    cnt = 0
-    with open(geo_file, "r") as finput:
-        for line in finput:
-            if "boundary" in line:
-                boundary_id = int(line.split("=")[1].split(";")[0])
-                if "wall" in line:
-                    assert boundary_id == BoundaryMarkers.wall.value
-                    cnt += 1
-                elif "symmetry" in line or "symmetric" in line:
-                    assert boundary_id == BoundaryMarkers.symmetry.value
-                    cnt += 1
-                elif "inlet" in line:
-                    assert boundary_id == BoundaryMarkers.inlet.value
-                    cnt += 1
-                elif "outlet" in line:
-                    assert boundary_id == BoundaryMarkers.outlet.value
-                    cnt += 1
-            if cnt == 4:
-                break
-
-    mesh = dlfn.Mesh(xml_file)
-    facet_marker = dlfn.MeshFunction("size_t", mesh, physical_regions_xml_file)
-
-    return mesh, facet_marker
+    return mesh, facet_markers, facet_marker_map
