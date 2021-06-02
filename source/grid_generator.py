@@ -19,7 +19,7 @@ class GeometryType(Enum):
     rectangle = auto()
     square = auto()
     other = auto()
-
+    
 
 class SphericalAnnulusBoundaryMarkers(Enum):
     """
@@ -51,6 +51,12 @@ class HyperCubeBoundaryMarkers(Enum):
     front = auto()
     opening = auto()
 
+    
+class UnitSquareBoundaryMarkers(Enum):
+    left = auto()
+    right = auto()
+    bottom = auto()
+    top = auto()
 
 class CircularBoundary(dlfn.SubDomain):
     def __init__(self, **kwargs):
@@ -114,7 +120,28 @@ def spherical_shell(dim, radii, n_refinements=0):
 
     return mesh, facet_marker
 
+def unit_square(n_points=10):
+    assert isinstance(n_points, int) and n_points >= 0
+    
+    mesh = dlfn.UnitSquareMesh(n_points, n_points)
+    facet_marker = dlfn.MeshFunction("size_t", mesh, mesh.geometry().dim() - 1)
+    facet_marker.set_all(0)
+    
+    # mark boundaries
+    BoundaryMarkers = UnitSquareBoundaryMarkers
 
+    gamma01 = dlfn.CompiledSubDomain("near(x[0], 0.0) && on_boundary")
+    gamma02 = dlfn.CompiledSubDomain("near(x[0], 1.0) && on_boundary")
+    gamma03 = dlfn.CompiledSubDomain("near(x[1], 0.0) && on_boundary")
+    gamma04 = dlfn.CompiledSubDomain("near(x[1], 1.0) && on_boundary")
+
+    gamma01.mark(facet_marker, BoundaryMarkers.left.value)
+    gamma02.mark(facet_marker, BoundaryMarkers.right.value)
+    gamma03.mark(facet_marker, BoundaryMarkers.bottom.value)
+    gamma04.mark(facet_marker, BoundaryMarkers.top.value)
+    
+    return mesh, facet_marker
+    
 def hyper_cube(dim, n_points=10):
     assert isinstance(dim, int)
     assert dim == 2 or dim == 3
