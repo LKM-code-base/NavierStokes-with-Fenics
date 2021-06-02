@@ -764,10 +764,14 @@ class InstationaryNavierStokesProblem(ProblemBase):
         self._navier_stokes_solver.set_initial_conditions(self._initial_conditions)
         self._write_xdmf_file(current_time=0.0)
 
-        dlfn.info("Solving problem with Re = {0:.2f} and "
-                  "Fr = {1:0.2f} until time = {2:0.2f}"
-                  .format(self._Re, self._Fr, self._time_stepping.end_time))
-
+        if self._Fr is not None:
+            dlfn.info("Solving problem with Re = {0:.2f} and "
+                      "Fr = {1:0.2f} until time = {2:0.2f}"
+                      .format(self._Re, self._Fr, self._time_stepping.end_time))
+        else:
+            dlfn.info("Solving problem with Re = {0:.2f} and "
+                      "until time = {1:0.2f}"
+                      .format(self._Re, self._time_stepping.end_time))
         # time loop
         assert hasattr(self, "_postprocessing_frequency")
         assert hasattr(self, "_output_frequency")

@@ -9,26 +9,26 @@ from grid_generator import HyperCubeBoundaryMarkers
 from grid_generator import HyperRectangleBoundaryMarkers
 from imex_time_stepping import IMEXType
 
-dlfn.set_log_level(40)
+dlfn.set_log_level(30)
 
 
 class ChannelFlowProblem(InstationaryNavierStokesProblem):
     def __init__(self, n_points, main_dir=None):
         super().__init__(main_dir, start_time=0.0, end_time=1.0,
-                         desired_start_time_step=0.001, n_max_steps=50)
+                         desired_start_time_step=0.01, n_max_steps=100)
 
         self._n_points = n_points
         self._problem_name = "ChannelFlow"
 
         self._imex_type = IMEXType.SBDF2
-        self.set_parameters(Re=1.0, Fr=1.0)
+        self.set_parameters(Re=10.0)
 
         self._output_frequency = 10
         self._postprocessing_frequency = 10
 
     def setup_mesh(self):
         # create mesh
-        self._mesh, self._boundary_markers = hyper_rectangle((0.0, 0.0), (10.0, 1.0), (50, 5))
+        self._mesh, self._boundary_markers = hyper_rectangle((0.0, 0.0), (10.0, 1.0), (100, 10))
         self.write_boundary_markers()
 
     def set_initial_conditions(self):
@@ -37,7 +37,8 @@ class ChannelFlowProblem(InstationaryNavierStokesProblem):
 
     def set_boundary_conditions(self):
         # velocity boundary conditions
-        inlet_velocity = dlfn.Expression(("6.0*x[1]*(1.0-x[1])", "0.0"), degree=2)
+        inlet_velocity = dlfn.Expression(("6.0*x[1]*(1.0-x[1]) * (1.0 + 0.5 * sin(M_PI * t))", "0.0"),
+                                         degree=2, t=0.0)
         self._bcs = ((VelocityBCType.function, HyperRectangleBoundaryMarkers.left.value, inlet_velocity),
                      (VelocityBCType.no_slip, HyperRectangleBoundaryMarkers.bottom.value, None),
                      (VelocityBCType.no_slip, HyperRectangleBoundaryMarkers.top.value, None))
@@ -52,13 +53,13 @@ class ChannelFlowProblem(InstationaryNavierStokesProblem):
 class GravityDrivenFlowProblem(InstationaryNavierStokesProblem):
     def __init__(self, n_points, main_dir=None):
         super().__init__(main_dir, start_time=0.0, end_time=1.0,
-                         desired_start_time_step=0.001, n_max_steps=100)
+                         desired_start_time_step=0.01, n_max_steps=100)
 
         self._n_points = n_points
         self._problem_name = "OpenCubeTransient"
 
         self._imex_type = IMEXType.SBDF2
-        self.set_parameters(Re=200.0, Fr=10.0)
+        self.set_parameters(Re=100.0, Fr=1.0)
 
         self._output_frequency = 10
         self._postprocessing_frequency = 10
