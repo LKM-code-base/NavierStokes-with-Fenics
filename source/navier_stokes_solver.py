@@ -630,7 +630,7 @@ class InstationaryNavierStokesSolver(NavierStokesSolverBase):
         if not all(hasattr(self, attr) for attr in ("_Wh",
                                                     "_solution",
                                                     "_old_solution",
-                                                    "_old_old_solution")):
+                                                    "_old_old_solution")):  # pragma: no cover
             self._setup_function_spaces()
 
         if not all(hasattr(self, attr) for attr in ("_next_step_size",

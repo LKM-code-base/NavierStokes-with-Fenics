@@ -9,7 +9,7 @@ import sys
 __all__ = ["generate_xdmf_mesh"]
 
 
-def _create_meshio_mesh(mesh, cell_type, prune_z=False):
+def _create_meshio_mesh(mesh, cell_type, prune_z=False):  # pragma: no cover
     """Create a meshio mesh object from a meshio mesh where only cells of
     `cell_type` are taken into account."""
     # input check
@@ -48,7 +48,7 @@ def _create_meshio_mesh(mesh, cell_type, prune_z=False):
     return out_mesh
 
 
-def generate_xdmf_mesh(geo_filename):
+def generate_xdmf_mesh(geo_filename):  # pragma: no cover
     """Generates two xdmf-files from a geo-file. The two xdmf-files
     contain the mesh and the associated facet markers. Facet markers refer to
     the markers on entities of codimension one.
@@ -100,5 +100,6 @@ def generate_xdmf_mesh(geo_filename):
     # delete msh file
     subprocess.run(["rm", "-rf", msh_filename], check=True)
 
+
 if __name__ == "__main__":
-        generate_xdmf_mesh(sys.argv[1])
+    generate_xdmf_mesh(sys.argv[1])

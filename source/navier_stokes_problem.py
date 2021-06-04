@@ -76,7 +76,7 @@ class ProblemBase:
             vorticity = dlfn.project(velocity_curl, Wh)
             vorticity.rename("vorticity", "")
             return vorticity
-        elif self._space_dim == 3:
+        elif self._space_dim == 3:  # pragma: no cover
             elemOmega = dlfn.VectorElement("DG", cell, degree - 1)
             Wh = dlfn.FunctionSpace(self._mesh, elemOmega)
             vorticity = dlfn.project(velocity_curl, Wh)
