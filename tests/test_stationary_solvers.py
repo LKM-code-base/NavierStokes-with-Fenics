@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 import dolfin as dlfn
 from navier_stokes_problem import StationaryNavierStokesProblem
-from navier_stokes_problem import VelocityBCType
+from navier_stokes_solver import VelocityBCType
+from navier_stokes_solver import TractionBCType
 from grid_generator import hyper_cube
 from grid_generator import open_hyper_cube
 from grid_generator import HyperCubeBoundaryMarkers
@@ -88,6 +89,26 @@ class GravityDrivenFlowProblem(StationaryNavierStokesProblem):
 
     def set_body_force(self):
         self._body_force = dlfn.Constant((0.0, -1.0))
+        
+        
+class CouetteProblem(StationaryNavierStokesProblem):
+    def __init__(self, n_points, main_dir=None):
+        super().__init__(main_dir)
+
+        self._n_points = n_points
+        self._problem_name = "Couette"
+
+        self.set_parameters(Re=1.0)
+
+    def setup_mesh(self):
+        # create mesh
+        self._mesh, self._boundary_markers = hyper_cube(2, self._n_points)
+
+    def set_boundary_conditions(self):
+        # velocity boundary conditions
+        self._bcs = ((VelocityBCType.no_slip, HyperCubeBoundaryMarkers.bottom.value, None),
+                     (TractionBCType.constant_component, HyperCubeBoundaryMarkers.top.value, 0, 1.0),
+                     (VelocityBCType.no_normal_flux, HyperCubeBoundaryMarkers.top.value, None))
 
 
 def test_cavity():
@@ -100,6 +121,12 @@ def test_gravity_driven_flow():
     gravity_flow.solve_problem()
 
 
+def test_couette_flow():
+    couette_flow = CouetteProblem(25)
+    couette_flow.solve_problem()
+
+
 if __name__ == "__main__":
     test_cavity()
     test_gravity_driven_flow()
+    test_couette_flow()

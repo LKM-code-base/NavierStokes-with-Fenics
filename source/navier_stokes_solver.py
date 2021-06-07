@@ -183,9 +183,9 @@ class NavierStokesSolverBase:
                 bndry_normal = boundary_normal(self._mesh, self._boundary_markers, bndry_id)
                 # find associated component
                 bndry_normal = np.array(bndry_normal)
-                normal_component_index = np.abs(bndry_normal).argmax()
+                normal_component_index = int(np.abs(bndry_normal).argmax())
                 # check that direction is either e_x, e_y or e_z
-                assert abs(bndry_normal[component_index] - 1.0) < 5.0e-15
+                assert abs(bndry_normal[normal_component_index] - 1.0) < 5.0e-15
                 assert all([abs(bndry_normal[d]) < 5.0e-15 for d in range(self._space_dim) if d != normal_component_index])
                 # construct boundary condition on subspace
                 bc_object = dlfn.DirichletBC(velocity_space.sub(normal_component_index),
