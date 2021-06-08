@@ -1,4 +1,5 @@
 [![codecov](https://codecov.io/gh/LKM-code-base/NavierStokes-with-Fenics/branch/main/graph/badge.svg?token=3WG1X3GHE1)](https://codecov.io/gh/LKM-code-base/NavierStokes-with-Fenics)
+[![Python Package using Conda](https://github.com/LKM-code-base/NavierStokes-with-Fenics/actions/workflows/python-package-conda.yml/badge.svg)](https://github.com/LKM-code-base/NavierStokes-with-Fenics/actions/workflows/python-package-conda.yml)
 
 # Flow problems with FEniCS
 
