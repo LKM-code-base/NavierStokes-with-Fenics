@@ -252,20 +252,20 @@ class NavierStokesSolverBase:
                 else:  # pragma: no cover
                     raise RuntimeError()
                 # create dolfin.DirichletBC object
-                if bc_type is VelocityBCType.constant:
-                    assert isinstance(value, (tuple, list))
+                if bc_type is PressureBCType.constant:
+                    assert isinstance(value, float)
                     const_function = dlfn.Constant(value)
                     bc_object = dlfn.DirichletBC(pressure_space, const_function,
                                                  self._boundary_markers, bndry_id)
                     self._dirichlet_bcs.append(bc_object)
 
-                elif bc_type is VelocityBCType.function:
+                elif bc_type is PressureBCType.function:
                     assert isinstance(value, dlfn.Expression)
                     bc_object = dlfn.DirichletBC(pressure_space, value,
                                                  self._boundary_markers, bndry_id)
                     self._dirichlet_bcs.append(bc_object)
 
-                elif bc_type is VelocityBCType.none:
+                elif bc_type is PressureBCType.none:
                     continue
 
                 else:  # pragma: no cover

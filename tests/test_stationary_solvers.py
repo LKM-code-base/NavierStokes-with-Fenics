@@ -3,10 +3,13 @@
 import dolfin as dlfn
 from navier_stokes_problem import StationaryNavierStokesProblem
 from navier_stokes_solver import VelocityBCType
+from navier_stokes_solver import PressureBCType
 from navier_stokes_solver import TractionBCType
 from grid_generator import hyper_cube
+from grid_generator import hyper_rectangle
 from grid_generator import open_hyper_cube
 from grid_generator import HyperCubeBoundaryMarkers
+from grid_generator import HyperRectangleBoundaryMarkers
 
 dlfn.set_log_level(20)
 
@@ -89,8 +92,8 @@ class GravityDrivenFlowProblem(StationaryNavierStokesProblem):
 
     def set_body_force(self):
         self._body_force = dlfn.Constant((0.0, -1.0))
-        
-        
+
+
 class CouetteProblem(StationaryNavierStokesProblem):
     def __init__(self, n_points, main_dir=None):
         super().__init__(main_dir)
@@ -111,6 +114,85 @@ class CouetteProblem(StationaryNavierStokesProblem):
                      (VelocityBCType.no_normal_flux, HyperCubeBoundaryMarkers.top.value, None))
 
 
+class ChannelFlowProblem(StationaryNavierStokesProblem):
+    def __init__(self, n_points, main_dir=None, bc_type="inlet"):
+        super().__init__(main_dir)
+
+        assert isinstance(n_points, int)
+        assert n_points > 0
+        self._n_points = n_points
+
+        assert isinstance(bc_type, str)
+        assert bc_type in ("inlet", "pressure_gradient", "inlet_pressure", "inlet_component")
+        self._bc_type = bc_type
+
+        self.set_parameters(Re=1.0)
+
+        if self._bc_type == "inlet":
+            self._problem_name = "ChannelFlowInlet"
+        elif self._bc_type == "pressure_gradient":
+            self._problem_name = "ChannelFlowPressureGradient"
+        elif self._bc_type == "inlet_pressure":
+            self._problem_name = "ChannelFlowInletPressure"
+        elif self._bc_type == "inlet_component":
+            self._problem_name = "ChannelFlowInletComponent"
+
+    def setup_mesh(self):
+        # create mesh
+        
+        self._mesh, self._boundary_markers = hyper_rectangle((0.0, 0.0), (10.0, 1.0),
+                                                             (10 * self._n_points, self._n_points))
+
+    def set_boundary_conditions(self):
+        # functions
+        inlet_profile_str = "6.0*x[1]*(1.0-x[1])"
+        inlet_velocity = dlfn.Expression((inlet_profile_str, "0.0"), degree=2)
+        inlet_velocity_component = dlfn.Expression(inlet_profile_str, degree=2)
+        outlet_pressure = dlfn.Expression("0.0", degree=0)
+        # boundary markers
+        Markers = HyperRectangleBoundaryMarkers
+
+        # boundary conditions
+        self._bcs = []
+
+        if self._bc_type == "inlet":
+            # inlet velocity profile
+            self._bcs.append((VelocityBCType.function, Markers.left.value, inlet_velocity))
+            # no-slip on the walls
+            self._bcs.append((VelocityBCType.no_slip, Markers.bottom.value, None))
+            self._bcs.append((VelocityBCType.no_slip, Markers.top.value, None))
+        elif self._bc_type == "pressure_gradient":
+            # pressure at the inlet (as a constant)
+            self._bcs.append((PressureBCType.constant, Markers.left.value, 1.0))
+            # pressure at the outlet (as a constant)
+            self._bcs.append((PressureBCType.constant, Markers.right.value, -1.0))
+            # no-slip on the walls
+            self._bcs.append((VelocityBCType.no_slip, Markers.bottom.value, None))
+            self._bcs.append((VelocityBCType.no_slip, Markers.top.value, None))
+        elif self._bc_type == "inlet_pressure":
+            # inlet velocity profile
+            self._bcs.append((VelocityBCType.function, Markers.left.value, inlet_velocity))
+            # no-slip on the walls
+            self._bcs.append((VelocityBCType.no_slip, Markers.bottom.value, None))
+            self._bcs.append((VelocityBCType.no_slip, Markers.top.value, None))
+            # pressure at the outlet (as a function)
+            self._bcs.append((PressureBCType.function, Markers.right.value, outlet_pressure))
+        elif self._bc_type == "inlet_component":
+            # inlet velocity profile (component)
+            self._bcs.append((VelocityBCType.function_component, Markers.left.value, 0, inlet_velocity_component))
+            # no-slip on the walls
+            self._bcs.append((VelocityBCType.no_slip, Markers.bottom.value, None))
+            self._bcs.append((VelocityBCType.no_slip, Markers.top.value, None))
+            # pressure at the outlet (as a constant)
+            self._bcs.append((PressureBCType.constant, Markers.right.value, 0.0))
+
+    def postprocess_solution(self):
+        # add pressure gradient to the field output
+        self._add_to_field_output(self._compute_pressure_gradient())
+        # add vorticity to the field output
+        self._add_to_field_output(self._compute_vorticity())
+
+
 def test_cavity():
     cavity_flow = CavityProblem(25)
     cavity_flow.solve_problem()
@@ -119,6 +201,12 @@ def test_cavity():
 def test_gravity_driven_flow():
     gravity_flow = GravityDrivenFlowProblem(25)
     gravity_flow.solve_problem()
+
+
+def test_channel_flow():
+    for bc_type in ("inlet", "pressure_gradient", "inlet_pressure", "inlet_component"):
+        channel_flow = ChannelFlowProblem(10, bc_type=bc_type)
+        channel_flow.solve_problem()
 
 
 def test_couette_flow():

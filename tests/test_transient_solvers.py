@@ -15,7 +15,7 @@ dlfn.set_log_level(30)
 class ChannelFlowProblem(InstationaryNavierStokesProblem):
     def __init__(self, n_points, main_dir=None):
         super().__init__(main_dir, start_time=0.0, end_time=1.0,
-                         desired_start_time_step=0.01, n_max_steps=100)
+                         desired_start_time_step=0.01, n_max_steps=10)
 
         self._n_points = n_points
         self._problem_name = "ChannelFlow"
@@ -52,7 +52,7 @@ class ChannelFlowProblem(InstationaryNavierStokesProblem):
 class GravityDrivenFlowProblem(InstationaryNavierStokesProblem):
     def __init__(self, n_points, main_dir=None):
         super().__init__(main_dir, start_time=0.0, end_time=1.0,
-                         desired_start_time_step=0.01, n_max_steps=100)
+                         desired_start_time_step=0.01, n_max_steps=10)
 
         self._n_points = n_points
         self._problem_name = "OpenCubeTransient"
