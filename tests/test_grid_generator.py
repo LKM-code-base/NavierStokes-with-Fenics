@@ -4,7 +4,10 @@ from grid_generator import hyper_cube
 from grid_generator import open_hyper_cube
 from grid_generator import hyper_rectangle
 from grid_generator import spherical_shell
-
+from grid_generator import _extract_facet_markers
+import subprocess
+from os import path
+import glob
 
 def test_hyper_cube():
     # two-dimensional case
@@ -47,8 +50,22 @@ def test_spherical_shell():
     _, _ = spherical_shell(3, (0.3, 1.0), 2)
 
 
+def test_extract_boundary_markers():
+    url_str = "https://github.com/LKM-code-base/Gmsh-collection/blob/66b29ba984ed6792f56666ee8eebc458c7a626d4/meshes/CubeThreeMaterials.geo"
+    subprocess.run(["wget", url_str], check=True)
+    fname = "CubeThreeMaterials.geo"
+    geo_files = glob.glob("*.geo", recursive=True)
+    for file in geo_files:
+        if fname in file:
+            geo_file = file
+            break
+    assert path.exists(geo_file)
+    _ = _extract_facet_markers(geo_file)
+    subprocess.run(["rm", geo_file], check=True)
+
+
 if __name__ == "__main__":
     test_hyper_cube()
     test_open_hyper_cube()
     test_spherical_shell()
-#    test_converging_diverging_pipe()
+    test_extract_boundary_markers()

@@ -139,7 +139,6 @@ class ChannelFlowProblem(StationaryNavierStokesProblem):
 
     def setup_mesh(self):
         # create mesh
-        
         self._mesh, self._boundary_markers = hyper_rectangle((0.0, 0.0), (10.0, 1.0),
                                                              (10 * self._n_points, self._n_points))
 

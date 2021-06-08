@@ -5,7 +5,6 @@ from enum import Enum, auto
 import glob
 import math
 from mshr import Sphere, Circle, generate_mesh
-import os
 from os import path
 
 
@@ -371,7 +370,7 @@ def _extract_facet_markers(geo_filename):
     with open(geo_filename, "r") as file:
         lines = file.readlines()
         for line in lines:
-            if "Physical Curve" in line or "Physical Line" in line :
+            if "Physical Curve" in line or "Physical Line" in line:
                 line = line[line.index("(")+1:line.index(")")]
                 assert "," in line
                 description, number = line.split(",")
@@ -391,7 +390,7 @@ def _extract_facet_markers(geo_filename):
     return facet_markers
 
 
-def channel_with_cylinder():
+def channel_with_cylinder():  # pragma: no cover
     """Create a mesh of a channel with a cylinder.
 
     This script reads a gmsh file. This file must be located inside the project

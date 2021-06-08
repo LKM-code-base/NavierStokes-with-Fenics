@@ -46,6 +46,7 @@ class DFGBenchmark2D2(InstationaryNavierStokesProblem):
         # add vorticity to the field output
         self._add_to_field_output(self._compute_vorticity())
 
+
 if __name__ == "__main__":
     dfg_benchmark = DFGBenchmark2D2()
     dfg_benchmark.solve_problem()

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# pragma: no cover
 import meshio
 from os import path
 import subprocess
@@ -101,5 +102,5 @@ def generate_xdmf_mesh(geo_filename):  # pragma: no cover
     subprocess.run(["rm", "-rf", msh_filename], check=True)
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     generate_xdmf_mesh(sys.argv[1])
