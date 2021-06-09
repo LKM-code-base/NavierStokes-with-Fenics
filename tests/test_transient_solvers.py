@@ -96,7 +96,7 @@ class GravityDrivenFlowProblem(InstationaryNavierStokesProblem):
 
 
 def test_channel_flow():
-    channel_flow = ChannelFlowProblem(50)
+    channel_flow = ChannelFlowProblem(10)
     channel_flow.solve_problem()
 
 
