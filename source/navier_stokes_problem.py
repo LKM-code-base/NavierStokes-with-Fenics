@@ -330,17 +330,18 @@ class StationaryNavierStokesProblem(ProblemBase):
     maxiter_picard: int (optional)
         Maximum number of Picard iterations.
     """
-    def __init__(self, main_dir=None, tol=1e-10, maxiter=50, tol_picard=1e-2,
-                 maxiter_picard=10):
+    def __init__(self, main_dir=None, form_convective_term="standard",
+                 tol=1e-10, maxiter=50, tol_picard=1e-2, maxiter_picard=10):
         """
         Constructor of the class.
         """
         super().__init__(main_dir)
 
         # input check
+        assert isinstance(form_convective_term, str)
         assert all(isinstance(i, int) and i > 0 for i in (maxiter, maxiter_picard))
         assert all(isinstance(i, float) and i > 0.0 for i in (tol_picard, tol_picard))
-
+        self._form_convective_term = form_convective_term
         # set numerical tolerances
         self._tol_picard = tol_picard
         self._maxiter_picard = maxiter_picard
@@ -433,6 +434,7 @@ class StationaryNavierStokesProblem(ProblemBase):
         if not hasattr(self, "_navier_stokes_solver"):
             self._navier_stokes_solver = \
                 StationarySolver(self._mesh, self._boundary_markers,
+                                 self._form_convective_term,
                                  self._tol, self._maxiter,
                                  self._tol_picard, self._maxiter_picard)
 
@@ -526,7 +528,9 @@ class InstationaryNavierStokesProblem(ProblemBase):
         Maximum number of non-linear Picard iterations.
     """
     def __init__(self, main_dir=None, start_time=0.0, end_time=1.0,
+                 form_convective_term="standard",
                  desired_start_time_step=0.1, n_max_steps=1000,
+                 
                  tol=1e-10, maxiter=50):
         """
         Constructor of the class.
@@ -536,10 +540,11 @@ class InstationaryNavierStokesProblem(ProblemBase):
         self._start_time = start_time
 
         # input check
+        assert isinstance(form_convective_term, str)
         assert all(isinstance(i, int) and i > 0 for i in (maxiter, n_max_steps))
         assert all(isinstance(i, float) and i >= 0.0 for i in (start_time, end_time,
                                                                desired_start_time_step))
-
+        self._form_convective_term = form_convective_term
         # set numerical tolerances
         self._start_time = start_time
         self._end_time = end_time
@@ -692,6 +697,7 @@ class InstationaryNavierStokesProblem(ProblemBase):
         if not hasattr(self, "_navier_stokes_solver"):
             self._navier_stokes_solver = \
                 InstationarySolver(self._mesh, self._boundary_markers,
+                                   self._form_convective_term,
                                    self._time_stepping,
                                    self._tol, self._maxiter)
 

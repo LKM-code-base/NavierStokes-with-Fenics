@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-from enum import Enum, auto
-
-import numpy as np
-
-import math
-
-import dolfin as dlfn
-from dolfin import grad, div, dot, inner
-
 from auxiliary_classes import CustomNonlinearProblem
 from auxiliary_methods import boundary_normal
 from auxiliary_methods import extract_all_boundary_markers
 from imex_time_stepping import IMEXTimeStepping
+import dolfin as dlfn
+from dolfin import cross, curl, div, dot, grad, inner
+from enum import Enum, auto
+import numpy as np
+import math
+import ufl
 
 
 class VelocityBCType(Enum):
@@ -39,8 +36,15 @@ class TractionBCType(Enum):
     free = auto()
 
 
-class SpatialDiscretizationConvectiveTerm(Enum):
-    standard = auto()
+class WeakFormConvectiveTerm(Enum):
+    """
+    The weak form of the convective term used according to John (2016),
+    pgs. 307-308
+    """
+    standard_form = auto()
+    rotational_form = auto()
+    divergence_form = auto()
+    skew_symmetric_form = auto()
 
 
 class NavierStokesSolverBase:
@@ -53,13 +57,17 @@ class NavierStokesSolverBase:
     """
     # class variables
     _null_scalar = dlfn.Constant(0.)
+    _one_half = dlfn.Constant(0.5)
 
-    def __init__(self, mesh, boundary_markers):
+    def __init__(self, mesh, boundary_markers, form_convective_term="standard"):
 
         # input check
         assert isinstance(mesh, dlfn.Mesh)
         assert isinstance(boundary_markers, (dlfn.cpp.mesh.MeshFunctionSizet,
                                              dlfn.cpp.mesh.MeshFunctionInt))
+        assert isinstance(form_convective_term, str)
+        assert form_convective_term.lower() in ("standard", "rotational",
+                                                "divergence", "skew_symmetric")
         # set mesh variables
         self._mesh = mesh
         self._boundary_markers = boundary_markers
@@ -71,6 +79,14 @@ class NavierStokesSolverBase:
         self._null_vector = dlfn.Constant((0., ) * self._space_dim)
 
         # set discretization parameters
+        if form_convective_term.lower() == "standard":
+            self._form_convective_term = WeakFormConvectiveTerm.standard_form
+        elif form_convective_term.lower() == "rotational":
+            self._form_convective_term = WeakFormConvectiveTerm.rotational_form
+        elif form_convective_term.lower() == "divergence":
+            self._form_convective_term = WeakFormConvectiveTerm.divergence_form
+        elif form_convective_term.lower() == "skew_symmetric":
+            self._form_convective_term = WeakFormConvectiveTerm.skew_symmetric_form
 
         # polynomial degree
         self._p_deg = 1
@@ -134,6 +150,41 @@ class NavierStokesSolverBase:
                 if isinstance(bc[3], dlfn.Expression):
                     # check rank of expression
                     assert bc[3].value_rank() == 0
+                    
+    def _convective_term(self, u, v):
+        assert isinstance(u, (dlfn.function.function.Function, ufl.tensors.ListTensor))
+        assert isinstance(v, (dlfn.function.argument.Argument, ufl.tensors.ListTensor))
+        
+        if self._form_convective_term is WeakFormConvectiveTerm.standard_form:
+            return dot(dot(grad(u), u), v)
+        elif self._form_convective_term is WeakFormConvectiveTerm.rotational_form:
+            if self._space_dim == 2:
+                curl_u = curl(u)
+                return dot(dlfn.as_vector([-curl_u * u[1], curl_u * u[0]]), v)
+            elif self._space_dim == 3:
+                return dot(cross(curl(u), u), v)
+        elif self._form_convective_term is WeakFormConvectiveTerm.divergence_form:
+            return dot(dot(grad(u), u), v) + self._one_half * dot(div(u) * u, v)
+        elif self._form_convective_term is WeakFormConvectiveTerm.skew_symmetric_form:
+            return self._one_half * (dot(dot(grad(u), u), v) - dot(dot(grad(v), u), u))
+
+    def _picard_linerization_convective_term(self, u, v, w):
+        assert isinstance(u, (dlfn.function.function.Function, ufl.tensors.ListTensor))
+        assert isinstance(v, (dlfn.function.argument.Argument, ufl.tensors.ListTensor))
+        assert isinstance(w, (dlfn.function.argument.Argument, ufl.tensors.ListTensor))
+        
+        if self._form_convective_term is WeakFormConvectiveTerm.standard_form:
+            return dot(dot(grad(v), u), w)
+        elif self._form_convective_term is WeakFormConvectiveTerm.rotational_form:
+            if self._space_dim == 2:
+                curl_u = curl(u)
+                return dot(dlfn.as_vector([-curl_u * v[1], curl_u * v[0]]), w)
+            elif self._space_dim == 3:
+                return dot(cross(curl(u), v), w)
+        elif self._form_convective_term is WeakFormConvectiveTerm.divergence_form:
+            return dot(dot(grad(v), u), w) + self._one_half * dot(div(u) * v, w)
+        elif self._form_convective_term is WeakFormConvectiveTerm.skew_symmetric_form:
+            return self._one_half * (dot(dot(grad(v), u), w) - dot(dot(grad(w), u), v))
 
     def _setup_function_spaces(self):
         """Class method setting up function spaces."""
@@ -419,10 +470,10 @@ class StationaryNavierStokesSolver(NavierStokesSolverBase):
     _field_association = {value: key for key, value in _sub_space_association.items()}
     _apply_boundary_traction = False
 
-    def __init__(self, mesh, boundary_markers, tol=1e-10, maxiter=50,
+    def __init__(self, mesh, boundary_markers, form_convective_term, tol=1e-10, maxiter=50,
                  tol_picard=1e-2, maxiter_picard=10):
 
-        super().__init__(mesh, boundary_markers)
+        super().__init__(mesh, boundary_markers, form_convective_term)
 
         # input check
         assert all(isinstance(i, int) and i > 0 for i in (maxiter, maxiter_picard))
@@ -475,7 +526,7 @@ class StationaryNavierStokesSolver(NavierStokesSolverBase):
         F_mass = -b(sol_v, q) * dV
 
         # momentum balance
-        F_momentum = (c(sol_v, sol_v, w) - b(w, sol_p) + (1. / Re) * a(sol_v, w)) * dV
+        F_momentum = (self._convective_term(sol_v, w) - b(w, sol_p) + (1. / Re) * a(sol_v, w)) * dV
 
         # add body force term
         if hasattr(self, "_body_force"):
@@ -515,7 +566,9 @@ class StationaryNavierStokesSolver(NavierStokesSolverBase):
 
         # linearization using Picard's method
         J_picard_mass = -b(v, q) * dV
-        J_picard_momentum = (c(sol_v, v, w) - b(w, p) + (1. / Re) * a(v, w)) * dV
+        J_picard_momentum = (
+                self._picard_linerization_convective_term(sol_v, v, w)
+                - b(w, p) + (1. / Re) * a(v, w)) * dV
         self._J_picard = J_picard_mass + J_picard_momentum
 
         # linearization using Newton's method
@@ -581,9 +634,9 @@ class InstationaryNavierStokesSolver(NavierStokesSolverBase):
     _sub_space_association = {0: "velocity", 1: "pressure"}
     _field_association = {value: key for key, value in _sub_space_association.items()}
 
-    def __init__(self, mesh, boundary_markers, time_stepping, tol=1e-10, max_iter=50):
+    def __init__(self, mesh, boundary_markers, form_convective_term, time_stepping, tol=1e-10, max_iter=50):
 
-        super().__init__(mesh, boundary_markers)
+        super().__init__(mesh, boundary_markers, form_convective_term)
 
         # input check
         assert isinstance(max_iter, int)
@@ -665,8 +718,7 @@ class InstationaryNavierStokesSolver(NavierStokesSolverBase):
 
         # divergence operator
         def b(phi, psi): return inner(div(phi), psi)
-        # non-linear convection operator
-        def c(phi, chi, psi): return dot(dot(grad(chi), phi), psi)
+
         # weak forms
         # mass balance
         F_mass = -b(velocity, q) * dV
@@ -678,7 +730,7 @@ class InstationaryNavierStokesSolver(NavierStokesSolverBase):
                             + alpha[1] * dot(old_velocity, w)
                             + alpha[2] * dot(old_old_velocity, w)
                         ) / k
-                        + c(velocity, velocity, w) - b(w, pressure)
+                        + self._convective_term(velocity, w) - b(w, pressure)
                         + a(velocity, w) / Re
                         ) * dV
 
@@ -722,7 +774,8 @@ class InstationaryNavierStokesSolver(NavierStokesSolverBase):
         J_picard_mass = -b(v, q) * dV
         J_picard_momentum = (
                 alpha[0] * dot(v, w) / k
-                + c(velocity, v, w) - b(w, p) + a(v, w) / Re) * dV
+                + self._picard_linerization_convective_term(velocity, v, w)
+                - b(w, p) + a(v, w) / Re) * dV
         self._J_picard = J_picard_mass + J_picard_momentum
 
         # linearization using Newton's method

@@ -115,8 +115,9 @@ class CouetteProblem(StationaryNavierStokesProblem):
 
 
 class ChannelFlowProblem(StationaryNavierStokesProblem):
-    def __init__(self, n_points, main_dir=None, bc_type="inlet"):
-        super().__init__(main_dir)
+    def __init__(self, n_points, main_dir=None, bc_type="inlet",
+                 form_convective_term="standard"):
+        super().__init__(main_dir, form_convective_term=form_convective_term)
 
         assert isinstance(n_points, int)
         assert n_points > 0
@@ -205,6 +206,12 @@ def test_gravity_driven_flow():
 def test_channel_flow():
     for bc_type in ("inlet", "pressure_gradient", "inlet_pressure", "inlet_component"):
         channel_flow = ChannelFlowProblem(10, bc_type=bc_type)
+        channel_flow.solve_problem()
+
+
+def test_channel_flow_convective_term():
+    for form_convective_term in  ("standard", "rotational", "divergence", "skew_symmetric"):
+        channel_flow = ChannelFlowProblem(10, form_convective_term=form_convective_term)
         channel_flow.solve_problem()
 
 
