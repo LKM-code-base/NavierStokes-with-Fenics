@@ -29,7 +29,6 @@ class PressureBCType(Enum):
     constant = auto()
     function = auto()
     mean_value = auto()
-    none = auto()
 
 
 class TractionBCType(Enum):
@@ -265,9 +264,6 @@ class NavierStokesSolverBase:
                                                  self._boundary_markers, bndry_id)
                     self._dirichlet_bcs.append(bc_object)
 
-                elif bc_type is PressureBCType.none:
-                    continue
-
                 else:  # pragma: no cover
                     raise RuntimeError()
         # HINT: traction boundary conditions are covered in _setup_problem
@@ -403,7 +399,7 @@ class NavierStokesSolverBase:
     def solution(self):
         return self._solution
 
-    def solve(self):
+    def solve(self):  # pragma: no cover
         """
         Purely virtual method for specifying setting up the problem.
         """
@@ -585,7 +581,7 @@ class InstationaryNavierStokesSolver(NavierStokesSolverBase):
     _sub_space_association = {0: "velocity", 1: "pressure"}
     _field_association = {value: key for key, value in _sub_space_association.items()}
 
-    def __init__(self, mesh, boundary_markers, time_stepping, tol, max_iter):
+    def __init__(self, mesh, boundary_markers, time_stepping, tol=1e-10, max_iter=50):
 
         super().__init__(mesh, boundary_markers)
 

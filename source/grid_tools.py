@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# pragma: no cover
-import meshio
-from os import path
-import subprocess
-import sys
+import meshio  # pragma: no cover
+from os import path  # pragma: no cover
+import subprocess  # pragma: no cover
+import sys  # pragma: no cover
 
 
-__all__ = ["generate_xdmf_mesh"]
+__all__ = ["generate_xdmf_mesh"]  # pragma: no cover
 
 
 def _create_meshio_mesh(mesh, cell_type, prune_z=False):  # pragma: no cover

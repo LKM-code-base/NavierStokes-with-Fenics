@@ -292,6 +292,26 @@ class ProblemBase:
         assert hasattr(self, "_space_dim")
         return self._space_dim
 
+    def write_boundary_markers(self):
+        """
+        Write the boundary markers specified by the MeshFunction
+        `_boundary_markers` to a pvd-file.
+        """
+        assert hasattr(self, "_boundary_markers")
+        assert hasattr(self, "_problem_name")
+
+        # create results directory
+        assert hasattr(self, "_results_dir")
+        if not path.exists(self._results_dir):
+            os.makedirs(self._results_dir)
+
+        problem_name = self._problem_name
+        suffix = ".pvd"
+        fname = problem_name + "_BoundaryMarkers"
+        fname += suffix
+        fname = path.join(self._results_dir, fname)
+
+        dlfn.File(fname) << self._boundary_markers
 
 class StationaryNavierStokesProblem(ProblemBase):
     """
@@ -389,27 +409,6 @@ class StationaryNavierStokesProblem(ProblemBase):
             assert isinstance(Fr, float) and Fr > 0.0
         self._Fr = Fr
 
-    def write_boundary_markers(self):
-        """
-        Write the boundary markers specified by the MeshFunction
-        `_boundary_markers` to a pvd-file.
-        """
-        assert hasattr(self, "_boundary_markers")
-        assert hasattr(self, "_problem_name")
-
-        # create results directory
-        assert hasattr(self, "_results_dir")
-        if not path.exists(self._results_dir):
-            os.makedirs(self._results_dir)
-
-        problem_name = self._problem_name
-        suffix = ".pvd"
-        fname = problem_name + "_BoundaryMarkers"
-        fname += suffix
-        fname = path.join(self._results_dir, fname)
-
-        dlfn.File(fname) << self._boundary_markers
-
     def solve_problem(self):
         """
         Solve the stationary problem.
@@ -464,31 +463,31 @@ class StationaryNavierStokesProblem(ProblemBase):
 
             return
 
-        except RuntimeError:
+        except RuntimeError:  # pragma: no cover
             pass
 
-        except Exception as ex:
+        except Exception as ex:  # pragma: no cover
             template = "An unexpected exception of type {0} occurred. " + \
                        "Arguments:\n{1!r}"
             message = template.format(type(ex).__name__, ex.args)
             print(message)
 
-        if self._Fr is not None:
+        if self._Fr is not None:  # pragma: no cover
             dlfn.info("Solving problem for Re = {0:.2f} and Fr = {1:0.2f} "
                       "without suitable initial guess failed."
                       .format(self._Re, self._Fr))
-        else:
+        else:  # pragma: no cover
             dlfn.info("Solving problem for Re = {0:.2f} without "
                       "suitable initial guess failed.".format(self._Re))
         # parameter continuation
-        dlfn.info("Solving problem with parameter continuation...")
+        dlfn.info("Solving problem with parameter continuation...")  # pragma: no cover
 
         # mixed logarithmic-linear spacing
         logReRange = np.logspace(np.log10(10.0), np.log10(self._Re),
-                                 num=8, endpoint=True)
+                                 num=8, endpoint=True)  # pragma: no cover
         linReRange = np.linspace(logReRange[-2], self._Re,
-                                 num=8, endpoint=True)
-        for Re in np.concatenate((logReRange[:-2], linReRange)):
+                                 num=8, endpoint=True)  # pragma: no cover
+        for Re in np.concatenate((logReRange[:-2], linReRange)):  # pragma: no cover
             # pass dimensionless numbers
             self._navier_stokes_solver.set_dimensionless_numbers(Re, self._Fr)
             # solve problem
@@ -500,10 +499,10 @@ class StationaryNavierStokesProblem(ProblemBase):
             self._navier_stokes_solver.solve()
 
         # postprocess solution
-        self.postprocess_solution()
+        self.postprocess_solution()  # pragma: no cover
 
         # write XDMF-files
-        self._write_xdmf_file()
+        self._write_xdmf_file()  # pragma: no cover
 
 
 class InstationaryNavierStokesProblem(ProblemBase):
@@ -632,7 +631,7 @@ class InstationaryNavierStokesProblem(ProblemBase):
         assert hasattr(self, "_navier_stokes_solver")
         return self._navier_stokes_solver
 
-    def set_initial_conditions(self):
+    def set_initial_conditions(self):  # pragma: no cover
         """
         Purely virtual method for specifying the boundary conditions of the
         problem.
@@ -659,56 +658,6 @@ class InstationaryNavierStokesProblem(ProblemBase):
         if Fr is not None:
             assert isinstance(Fr, float) and Fr > 0.0
         self._Fr = Fr
-
-        if imex_type is not None:
-            assert isinstance(imex_type, (str, IMEXType))
-            if isinstance(imex_type, IMEXType):
-                self._imex_type = imex_type
-            elif isinstance(imex_type, str):
-                assert imex_type in ("CNAB", "mCNAB", "CNLF", "SBDF2", "SBDF")
-                if imex_type == "CNAB":
-                    self._imex_type = IMEXType.CNAB
-                elif imex_type == "mCNAB":
-                    self._imex_type = IMEXType.mCNAB
-                elif imex_type == "CNLF":
-                    self._imex_type = IMEXType.CNLF
-                elif imex_type == "SBDF2" or imex_type == "SBDF":
-                    self._imex_type = IMEXType.SBDF2
-
-        if min_cfl is not None:
-            assert isinstance(min_cfl, float)
-            assert min_cfl > 0.0
-            if hasattr(self, "_max_cfl"):
-                assert min_cfl < self._max_cfl
-            self._min_cfl = min_cfl
-
-        if max_cfl is not None:
-            assert isinstance(max_cfl, float)
-            assert max_cfl > 0.0
-            if hasattr(self, "_min_cfl"):
-                assert self._min_cfl < max_cfl
-            self._max_cfl = max_cfl
-
-    def write_boundary_markers(self):
-        """
-        Write the boundary markers specified by the MeshFunction
-        `_boundary_markers` to a pvd-file.
-        """
-        assert hasattr(self, "_boundary_markers")
-        assert hasattr(self, "_problem_name")
-
-        # create results directory
-        assert hasattr(self, "_results_dir")
-        if not path.exists(self._results_dir):
-            os.makedirs(self._results_dir)
-
-        problem_name = self._problem_name
-        suffix = ".pvd"
-        fname = problem_name + "_BoundaryMarkers"
-        fname += suffix
-        fname = path.join(self._results_dir, fname)
-
-        dlfn.File(fname) << self._boundary_markers
 
     def solve_problem(self):
         """
