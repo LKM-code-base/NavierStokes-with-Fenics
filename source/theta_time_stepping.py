@@ -38,6 +38,7 @@ class GeneralThetaTimeStepping(DiscreteTime):
             self._Theta = [(1.0, 0.0, 0.0, 1.0)]
 
         elif self._type == ThetaTimeSteppingType.CrankNicolson:
+            self._n_steps = 1
             self._Theta = [(0.5, 0.5, 0.5, 0.5)]
 
         elif self._type == ThetaTimeSteppingType.FractionalStep01:
@@ -61,7 +62,7 @@ class GeneralThetaTimeStepping(DiscreteTime):
                            (tau * theta, eta * theta, theta, 0.0)]
 
         self._intermediate_timesteps = [0.0] * self._n_steps
-        self._intermediate_times = [[0.0] * self._n_steps] * 2
+        self._intermediate_times = [[0.0] * self._n_steps for i in range(2)]
 
     def restart(self):
         """
@@ -70,7 +71,7 @@ class GeneralThetaTimeStepping(DiscreteTime):
         super().restart()
 
         self._intermediate_timesteps = [0.0] * self._n_steps
-        self._intermediate_times = [[0.0] * self._n_steps] * 2
+        self._intermediate_times = [[0.0] * self._n_steps for i in range(2)]
 
     def update_coefficients(self):
         # compute intermediate time steps
