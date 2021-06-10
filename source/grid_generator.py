@@ -356,7 +356,7 @@ def converging_diverging_pipe():
     return mesh, facet_marker
 
 
-def _extract_facet_markers(geo_filename):
+def _extract_facet_markers(geo_filename):  # pragma: no cover
     """Extract facet markers from a geo-file and returns them as a dictionary.
     """
     # input check
