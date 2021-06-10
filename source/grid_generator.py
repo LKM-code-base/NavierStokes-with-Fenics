@@ -354,3 +354,112 @@ def converging_diverging_pipe():
     facet_marker = dlfn.MeshFunction("size_t", mesh, physical_regions_xml_file)
 
     return mesh, facet_marker
+
+
+def _extract_facet_markers(geo_filename):
+    """Extract facet markers from a geo-file and returns them as a dictionary.
+    """
+    # input check
+    assert isinstance(geo_filename, str)
+    assert path.exists(geo_filename)
+    assert geo_filename.endswith(".geo")
+    # read file
+    facet_markers = dict()
+    with open(geo_filename, "r") as file:
+        lines = file.readlines()
+        for line in lines:
+            if "Physical Curve" in line or "Physical Line" in line:
+                line = line[line.index("(")+1:line.index(")")]
+                assert "," in line
+                description, number = line.split(",")
+                # facet id
+                number = number.strip(" ")
+                assert number.isnumeric()
+                facet_id = int(number)
+                # boundary description
+                description = description.strip(" ")
+                description = description.strip("'")
+                description = description.strip('"')
+                assert description.replace(" ", "").isalpha()
+                # add to dictionary
+                assert description not in facet_markers
+                facet_markers[description] = facet_id
+
+    return facet_markers
+
+def backward_facing_step():  # pragma: no cover
+    """Create a mesh of a channel with a backward facing step.
+    This script reads a gmsh file. This file must be located inside the project
+    directory. If this script is used inside the docker container, the
+    associated xdmf files must already exist.
+    """
+    # locate geo file
+    fname = "BackwardFacingStep.geo"
+    geo_files = glob.glob("../*/*/*.geo", recursive=True)
+    geo_files += glob.glob("./*/*/*.geo", recursive=True)
+    for file in geo_files:
+        if fname in file:
+            geo_file = file
+            break
+    assert path.exists(geo_file)
+
+    facet_marker_map = _extract_facet_markers(geo_file)
+    # define xdmf files
+    filename = geo_file[:geo_file.index(".geo")]
+    xdmf_facet_marker_file = filename + "_facet_markers.xdmf"
+    xdmf_file = geo_file.replace(".geo", ".xdmf")
+    # check if xdmf files exist
+    if not path.exists(xdmf_file) or not path.exists(xdmf_facet_marker_file):
+        from grid_tools import generate_xdmf_mesh
+        generate_xdmf_mesh(geo_file)
+    # read xdmf files
+    mesh = dlfn.Mesh()
+    with dlfn.XDMFFile(xdmf_file) as infile:
+        infile.read(mesh)
+    # read facet markers
+    space_dim = mesh.geometry().dim()
+    mvc = dlfn.MeshValueCollection("size_t", mesh, space_dim - 1)
+    with dlfn.XDMFFile(xdmf_facet_marker_file) as infile:
+        infile.read(mvc, "facet_markers")
+    facet_markers = dlfn.cpp.mesh.MeshFunctionSizet(mesh, mvc)
+
+    return mesh, facet_markers, facet_marker_map
+
+def blasius_plate():  # pragma: no cover
+    """Create a mesh of a plate embedded in free space.
+    This script reads a gmsh file. This file must be located inside the project
+    directory. If this script is used inside the docker container, the
+    associated xdmf files must already exist.
+    """
+    # locate geo file
+    fname = "BlasiusFlowProblem.geo"
+    geo_files = glob.glob("../*/*/*.geo", recursive=True)
+    geo_files += glob.glob("./*/*/*.geo", recursive=True)
+    for file in geo_files:
+        if fname in file:
+            geo_file = file
+            break
+    assert path.exists(geo_file)
+
+    facet_marker_map = _extract_facet_markers(geo_file)
+    # define xdmf files
+    filename = geo_file[:geo_file.index(".geo")]
+    xdmf_facet_marker_file = filename + "_facet_markers.xdmf"
+    xdmf_file = geo_file.replace(".geo", ".xdmf")
+    # check if xdmf files exist
+    if not path.exists(xdmf_file) or not path.exists(xdmf_facet_marker_file):
+        from grid_tools import generate_xdmf_mesh
+        generate_xdmf_mesh(geo_file)
+    # read xdmf files
+    mesh = dlfn.Mesh()
+    with dlfn.XDMFFile(xdmf_file) as infile:
+        infile.read(mesh)
+    # read facet markers
+    space_dim = mesh.geometry().dim()
+    mvc = dlfn.MeshValueCollection("size_t", mesh, space_dim - 1)
+    with dlfn.XDMFFile(xdmf_facet_marker_file) as infile:
+        infile.read(mvc, "facet_markers")
+    facet_markers = dlfn.cpp.mesh.MeshFunctionSizet(mesh, mvc)
+
+    return mesh, facet_markers, facet_marker_map
+

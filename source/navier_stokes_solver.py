@@ -91,7 +91,7 @@ class StationaryNavierStokesSolver():
         q_deg = self._p_deg + 2
         dlfn.parameters["form_compiler"]["quadrature_degree"] = q_deg
 
-    def _check_boundary_condition_format(self, bc):
+    def _check_boundary_condition_format(self, bc, internal_constraint=False):
         """
         Check the general format of an arbitrary boundary condition.
         """
@@ -102,6 +102,7 @@ class StationaryNavierStokesSolver():
         # 0. input check
         assert isinstance(bc, (list, tuple))
         assert len(bc) >= 2
+        assert isinstance(internal_constraint, bool)
         # 1. check bc type
         assert isinstance(bc[0], (VelocityBCType, PressureBCType, TractionBCType))
         if isinstance(bc[0], PressureBCType):
@@ -110,8 +111,17 @@ class StationaryNavierStokesSolver():
             rank = 1
         # 2. check boundary id
         assert isinstance(bc[1], int)
-        assert bc[1] in all_bndry_ids, "Boundary id {0} ".format(bc[1]) +\
-                                       "was not found in the boundary markers."
+        if internal_constraint:
+            facet_id_found = False
+            for f in dlfn.facets(self._mesh):
+                if self._boundary_markers[f] == bc[1]:
+                    facet_id_found = True
+                    break
+            assert facet_id_found
+
+        else:
+            assert bc[1] in all_bndry_ids, "Boundary id {0} ".format(bc[1]) +\
+                                           "was not found in the boundary markers."
         # 3. check value type
         # distinguish between scalar and vector field
         if rank == 0:
@@ -196,9 +206,9 @@ class StationaryNavierStokesSolver():
                 bndry_normal = boundary_normal(self._mesh, self._boundary_markers, bndry_id)
                 # find associated component
                 bndry_normal = np.array(bndry_normal)
-                normal_component_index = np.abs(bndry_normal).argmax()
+                normal_component_index = int(np.abs(bndry_normal).argmax())
                 # check that direction is either e_x, e_y or e_z
-                assert abs(bndry_normal[component_index] - 1.0) < 5.0e-15
+                assert abs(abs(bndry_normal[normal_component_index]) - 1.0) < 5.0e-15
                 assert all([abs(bndry_normal[d]) < 5.0e-15 for d in range(self._space_dim) if d != normal_component_index])
                 # construct boundary condition on subspace
                 bc_object = dlfn.DirichletBC(velocity_space.sub(normal_component_index),
@@ -211,7 +221,7 @@ class StationaryNavierStokesSolver():
                 bndry_normal = boundary_normal(self._mesh, self._boundary_markers, bndry_id)
                 # find associated component
                 bndry_normal = np.array(bndry_normal)
-                normal_component_index = np.abs(bndry_normal).argmax()
+                normal_component_index = int(np.abs(bndry_normal).argmax())
                 # check that direction is either e_x, e_y or e_z
                 assert abs(bndry_normal[normal_component_index] - 1.0) < 5.0e-15
                 assert all([abs(bndry_normal[d]) < 5.0e-15 for d in range(self._space_dim) if d != normal_component_index])
@@ -407,9 +417,8 @@ class StationaryNavierStokesSolver():
             assert body_force.ufl_shape[0] == self._space_dim
         self._body_force = body_force
 
-    def set_boundary_conditions(self, bcs):
-        """
-        Set the boundary conditions of the problem.
+    def set_boundary_conditions(self, bcs, internal_constraints=None):
+        """Set the boundary conditions of the problem.
         The boundary conditions are specified as a list of tuples where each
         tuple represents a separate boundary condition. This means that, for
         example,
@@ -421,8 +430,11 @@ class StationaryNavierStokesSolver():
         the boundary condition, the third entry specifies the value. If only a
         single component is constrained, the third entry specifies the
         component index and the third entry specifies the value.
+        An optional argument allows to also specify internal constraints.
         """
         assert isinstance(bcs, (list, tuple))
+        if internal_constraints is not None:
+            assert isinstance(internal_constraints, (list, tuple))
         # check format
         for bc in bcs:
             self._check_boundary_condition_format(bc)
@@ -475,6 +487,32 @@ class StationaryNavierStokesSolver():
                         break
                 # compare components
                 assert traction_bc_component != vel_bc_component
+        
+        # internal constraints
+        if internal_constraints is not None:
+            # check format of internal constraints
+            for bc in internal_constraints:
+                self._check_boundary_condition_format(bc, True)
+                
+            # check format of internal constraints
+            velocity_constraints = []
+            pressure_constraints = []
+            for bc in internal_constraints:
+                #  check that there is no conflict between bcs and constraints
+                assert bc[1] not in velocity_bc_ids
+                assert bc[1] not in traction_bc_ids
+                assert bc[1] not in pressure_bc_ids
+                
+                if isinstance(bc[0], VelocityBCType):
+                    velocity_constraints.append(bc)
+                elif isinstance(bc[0], TractionBCType):
+                    raise NotImplementedError()
+                elif isinstance(bc[0], PressureBCType):
+                    pressure_constraints.append(bc)
+            # add internal constraint to bc list
+            velocity_bcs += velocity_constraints
+            pressure_bcs += pressure_constraints
+
         # boundary conditions accepted
         self._velocity_bcs = velocity_bcs
         if len(traction_bcs) > 0:
