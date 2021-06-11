@@ -112,5 +112,12 @@ class GeneralThetaTimeStepping(DiscreteTime):
         return self._intermediate_times
 
     @property
+    def n_levels(self):
+        """Returns the number of solution of previous timesteps required."""
+        return 1
+
+    @property
     def n_steps(self):
+        """Returns the number of substeps required to proceed from the current
+        time level to the next time level."""
         return self._n_steps

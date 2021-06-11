@@ -400,6 +400,7 @@ def channel_with_cylinder():  # pragma: no cover
     # locate geo file
     fname = "DFGBenchmark.geo"
     geo_files = glob.glob("../*/*/*.geo", recursive=True)
+    geo_files += glob.glob("./*/*/*.geo", recursive=True)
     for file in geo_files:
         if fname in file:
             geo_file = file

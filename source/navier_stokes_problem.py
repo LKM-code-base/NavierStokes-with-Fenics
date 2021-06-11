@@ -1,21 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+from auxiliary_methods import extract_all_boundary_markers
+from bdf_time_stepping import BDFTimeStepping
+import dolfin as dlfn
+import math
+from navier_stokes_solver_base import VelocityBCType
+from navier_stokes_solver_base import PressureBCType
+from navier_stokes_solver_base import StationaryNavierStokesSolver as StationarySolver
+from navier_stokes_implicit_bdf_solver import ImplicitBDFNavierStokesSolver as InstationarySolver
+import numpy as np
 import os
 from os import path
-import dolfin as dlfn
-import numpy as np
-
-from auxiliary_methods import extract_all_boundary_markers
-
-from imex_time_stepping import IMEXTimeStepping
-from imex_time_stepping import IMEXType
-
-import math
-
-from navier_stokes_solver import VelocityBCType
-from navier_stokes_solver import PressureBCType
-from navier_stokes_solver import StationaryNavierStokesSolver as StationarySolver
-from navier_stokes_solver import InstationaryNavierStokesSolver as InstationarySolver
 
 
 class ProblemBase:
@@ -689,9 +684,8 @@ class InstationaryNavierStokesProblem(ProblemBase):
 
         # create IMEX object
         assert hasattr(self, "_imex_type")
-        self._time_stepping = IMEXTimeStepping(self._start_time, self._end_time,
-                                               self._imex_type,
-                                               desired_start_time_step=self._desired_start_time_step)
+        self._time_stepping = BDFTimeStepping(self._start_time, self._end_time,
+                                              desired_start_time_step=self._desired_start_time_step)
 
         # create solver object
         if not hasattr(self, "_navier_stokes_solver"):

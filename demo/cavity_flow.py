@@ -1,14 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
 import dolfin as dlfn
-
-from navier_stokes_problem import StationaryNavierStokesProblem
-
-from navier_stokes_solver import VelocityBCType
-
 from grid_generator import hyper_cube, HyperCubeBoundaryMarkers
-
+from navier_stokes_problem import StationaryNavierStokesProblem
+from navier_stokes_solver_base import VelocityBCType
 dlfn.set_log_level(40)
 
 
