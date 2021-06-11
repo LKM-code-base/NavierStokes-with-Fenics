@@ -4,9 +4,9 @@ from auxiliary_methods import extract_all_boundary_markers
 from bdf_time_stepping import BDFTimeStepping
 import dolfin as dlfn
 import math
-from navier_stokes_solver_base import VelocityBCType
-from navier_stokes_solver_base import PressureBCType
-from navier_stokes_solver_base import StationaryNavierStokesSolver as StationarySolver
+from ns_solver_base import VelocityBCType
+from ns_solver_base import PressureBCType
+from ns_solver_base import StationaryNavierStokesSolver as StationarySolver
 from navier_stokes_implicit_bdf_solver import ImplicitBDFNavierStokesSolver as InstationarySolver
 import numpy as np
 import os

@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 import dolfin as dlfn
 from navier_stokes_problem import StationaryNavierStokesProblem
-from navier_stokes_solver_base import VelocityBCType
-from navier_stokes_solver_base import PressureBCType
-from navier_stokes_solver_base import TractionBCType
+from ns_solver_base import VelocityBCType
+from ns_solver_base import PressureBCType
+from ns_solver_base import TractionBCType
 from grid_generator import hyper_cube
 from grid_generator import hyper_rectangle
 from grid_generator import open_hyper_cube

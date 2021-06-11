@@ -5,7 +5,7 @@ from bdf_time_stepping import BDFTimeStepping
 import dolfin as dlfn
 from dolfin import dot
 import math
-from navier_stokes_solver_base import InstationaryNavierStokesSolverBase
+from ns_solver_base import InstationaryNavierStokesSolverBase
 
 
 class ImplicitBDFNavierStokesSolver(InstationaryNavierStokesSolverBase):
