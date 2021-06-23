@@ -269,6 +269,13 @@ class ProblemBase:
         problem.
         """
         raise NotImplementedError("You are calling a purely virtual method.")
+        
+    def set_internal_constraints(self):  # pragma: no cover
+        """
+        Virtual method for specifying constraint on internal degrees of freedom
+        of the problem.
+        """
+        pass
 
     def set_body_force(self):  # pragma: no cover
         """
@@ -417,6 +424,9 @@ class StationaryNavierStokesProblem(ProblemBase):
 
         # setup boundary conditions
         self.set_boundary_conditions()
+        
+        # setup boundary conditions
+        self.set_internal_constraints()
 
         # setup has body force
         self.set_body_force()
@@ -434,7 +444,11 @@ class StationaryNavierStokesProblem(ProblemBase):
                                  self._tol_picard, self._maxiter_picard)
 
         # pass boundary conditions
-        self._navier_stokes_solver.set_boundary_conditions(self._bcs)
+        if hasattr(self, "_internal_constraints"):
+            self._navier_stokes_solver.set_boundary_conditions(self._bcs,
+                                                               self._internal_constraints)
+        else:
+            self._navier_stokes_solver.set_boundary_conditions(self._bcs)
 
         # pass dimensionless numbers
         self._navier_stokes_solver.set_dimensionless_numbers(self._Re, self._Fr)
