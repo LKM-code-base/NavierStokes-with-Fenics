@@ -3,7 +3,7 @@
 import dolfin as dlfn
 from grid_generator import backward_facing_step
 from navier_stokes_problem import StationaryNavierStokesProblem
-from navier_stokes_solver import VelocityBCType
+from ns_solver_base import VelocityBCType
 
 dlfn.set_log_level(20)
 
