@@ -173,3 +173,14 @@ class BDFTimeStepping(DiscreteTime):
     def coefficients_changed(self, derivative):
         assert derivative in (1, 2)
         return self._coefficients_changed[derivative]
+
+    def n_levels(self, derivative=1):
+        """Returns the number of solution of previous timesteps required."""
+        assert derivative in (1, 2)
+        return len(self._alpha[derivative]) - 1
+
+    @property
+    def n_substeps(self):
+        """Returns the number of substeps required to proceed from the current
+        time level to the next time level."""
+        return 1
