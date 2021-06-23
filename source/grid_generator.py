@@ -427,3 +427,42 @@ def channel_with_cylinder():  # pragma: no cover
     facet_markers = dlfn.cpp.mesh.MeshFunctionSizet(mesh, mvc)
 
     return mesh, facet_markers, facet_marker_map
+
+
+def blasius_plate():  # pragma: no cover
+    """Create a mesh of a plate embedded in free space.
+    This script reads a gmsh file. This file must be located inside the project
+    directory. If this script is used inside the docker container, the
+    associated xdmf files must already exist.
+    """
+    # locate geo file
+    fname = "BlasiusFlowProblem.geo"
+    geo_files = glob.glob("../*/*/*.geo", recursive=True)
+    geo_files += glob.glob("./*/*/*.geo", recursive=True)
+    for file in geo_files:
+        if fname in file:
+            geo_file = file
+            break
+    assert path.exists(geo_file)
+
+    facet_marker_map = _extract_facet_markers(geo_file)
+    # define xdmf files
+    filename = geo_file[:geo_file.index(".geo")]
+    xdmf_facet_marker_file = filename + "_facet_markers.xdmf"
+    xdmf_file = geo_file.replace(".geo", ".xdmf")
+    # check if xdmf files exist
+    if not path.exists(xdmf_file) or not path.exists(xdmf_facet_marker_file):
+        from grid_tools import generate_xdmf_mesh
+        generate_xdmf_mesh(geo_file)
+    # read xdmf files
+    mesh = dlfn.Mesh()
+    with dlfn.XDMFFile(xdmf_file) as infile:
+        infile.read(mesh)
+    # read facet markers
+    space_dim = mesh.geometry().dim()
+    mvc = dlfn.MeshValueCollection("size_t", mesh, space_dim - 1)
+    with dlfn.XDMFFile(xdmf_facet_marker_file) as infile:
+        infile.read(mvc, "facet_markers")
+    facet_markers = dlfn.cpp.mesh.MeshFunctionSizet(mesh, mvc)
+
+    return mesh, facet_markers, facet_marker_map
