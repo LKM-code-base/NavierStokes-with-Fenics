@@ -1,0 +1,3 @@
+[submodule "gmsh-collection"]
+	path = gmsh-collection
+	url = https://github.com/LKM-code-base/Gmsh-collection.git

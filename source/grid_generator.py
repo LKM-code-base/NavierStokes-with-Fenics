@@ -66,7 +66,7 @@ class CircularBoundary(dlfn.SubDomain):
 
 def spherical_shell(dim, radii, n_refinements=0):
     """
-    Create a spherical shell using the mshr module.
+    Creates the mesh of a spherical shell using the mshr module.
     """
     assert isinstance(dim, int)
     assert dim == 2 or dim == 3
@@ -114,7 +114,7 @@ def spherical_shell(dim, radii, n_refinements=0):
 
 def hyper_cube(dim, n_points=10):
     """
-    Create a unit hyper cube with an equidistant mesh size.
+    Creates a unit hyper cube with an equidistant mesh size.
     """
     assert isinstance(dim, int)
     assert dim == 2 or dim == 3
