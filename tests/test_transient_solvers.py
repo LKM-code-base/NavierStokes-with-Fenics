@@ -7,7 +7,6 @@ from grid_generator import hyper_rectangle
 from grid_generator import open_hyper_cube
 from grid_generator import HyperCubeBoundaryMarkers
 from grid_generator import HyperRectangleBoundaryMarkers
-from imex_time_stepping import IMEXType
 
 dlfn.set_log_level(30)
 
@@ -20,7 +19,6 @@ class ChannelFlowProblem(InstationaryNavierStokesProblem):
         self._n_points = n_points
         self._problem_name = "ChannelFlow"
 
-        self._imex_type = IMEXType.SBDF2
         self.set_parameters(Re=10.0)
 
         self._output_frequency = 10
@@ -58,7 +56,6 @@ class GravityDrivenFlowProblem(InstationaryNavierStokesProblem):
         self._n_points = n_points
         self._problem_name = "OpenCubeTransient"
 
-        self._imex_type = IMEXType.SBDF2
         self.set_parameters(Re=100.0, Fr=1.0)
 
         self._output_frequency = 10

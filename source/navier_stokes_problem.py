@@ -7,15 +7,14 @@ import numpy as np
 
 from auxiliary_methods import extract_all_boundary_markers
 
-from imex_time_stepping import IMEXTimeStepping
-from imex_time_stepping import IMEXType
+from bdf_time_stepping import BDFTimeStepping
 
 import math
 
-from navier_stokes_solver import VelocityBCType
-from navier_stokes_solver import PressureBCType
-from navier_stokes_solver import StationaryNavierStokesSolver as StationarySolver
-from navier_stokes_solver import InstationaryNavierStokesSolver as InstationarySolver
+from ns_solver_base import VelocityBCType
+from ns_solver_base import PressureBCType
+from ns_solver_base import StationaryNavierStokesSolver as StationarySolver
+from ns_solver_base import ImplicitMonolithicBDFNavierStokesSolver as InstationarySolver
 
 
 class ProblemBase:
@@ -658,7 +657,6 @@ class InstationaryNavierStokesProblem(ProblemBase):
         raise NotImplementedError("You are calling a purely virtual method.")
 
     def set_parameters(self, Re=1.0, Fr=None,
-                       imex_type=None,
                        min_cfl=None, max_cfl=None):
         """
         Sets up the parameters of the model by creating or modifying class
@@ -701,11 +699,9 @@ class InstationaryNavierStokesProblem(ProblemBase):
         # set initial condition
         self.set_initial_conditions()
 
-        # create IMEX object
-        assert hasattr(self, "_imex_type")
-        self._time_stepping = IMEXTimeStepping(self._start_time, self._end_time,
-                                               self._imex_type,
-                                               desired_start_time_step=self._desired_start_time_step)
+        # create time stepping object
+        self._time_stepping = BDFTimeStepping(self._start_time, self._end_time,
+                                              desired_start_time_step=self._desired_start_time_step)
 
         # create solver object
         if not hasattr(self, "_navier_stokes_solver"):
