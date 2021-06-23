@@ -146,3 +146,14 @@ class IMEXTimeStepping(DiscreteTime):
     @property
     def coefficients_changed(self):
         return self._coefficients_changed
+
+    @property
+    def n_levels(self):
+        """Returns the number of solution of previous timesteps required."""
+        return len(self._alpha) - 1
+
+    @property
+    def n_substeps(self):
+        """Returns the number of substeps required to proceed from the current
+        time level to the next time level."""
+        return 1
