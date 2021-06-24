@@ -1,26 +1,27 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import dolfin as dlfn
-from navier_stokes_problem import InstationaryNavierStokesProblem
-from navier_stokes_problem import VelocityBCType
-from imex_time_stepping import IMEXType
 from grid_generator import channel_with_cylinder
+from ns_bdf_solver import ImplicitBDFSolver
+from ns_problem import InstationaryProblem
+from ns_solver_base import VelocityBCType
 
 dlfn.set_log_level(40)
 
 
-class DFGBenchmark2D2(InstationaryNavierStokesProblem):
+class DFGBenchmark2D2(InstationaryProblem):
     def __init__(self, main_dir=None):
         super().__init__(main_dir, start_time=0.0, end_time=1.0,
                          desired_start_time_step=0.001, n_max_steps=50)
 
         self._problem_name = "DFGBenchmark2D2"
 
-        self._imex_type = IMEXType.SBDF2
         self.set_parameters(Re=100.0)
 
         self._output_frequency = 10
         self._postprocessing_frequency = 10
+
+        self.set_solver_class(ImplicitBDFSolver)
 
     def setup_mesh(self):
         # create mesh

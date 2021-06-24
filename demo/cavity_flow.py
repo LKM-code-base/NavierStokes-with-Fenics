@@ -1,18 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
 import dolfin as dlfn
-
-from navier_stokes_problem import StationaryNavierStokesProblem
-
-from navier_stokes_solver import VelocityBCType
-
 from grid_generator import hyper_cube, HyperCubeBoundaryMarkers
-
+from ns_problem import StationaryProblem
+from ns_solver_base import VelocityBCType
 dlfn.set_log_level(40)
 
 
-class CavityProblem(StationaryNavierStokesProblem):
+class CavityProblem(StationaryProblem):
     def __init__(self, n_points, main_dir=None):
         super().__init__(main_dir)
 
