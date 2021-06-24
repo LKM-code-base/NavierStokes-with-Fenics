@@ -47,7 +47,7 @@ class WeakFormConvectiveTerm(Enum):
     skew_symmetric_form = auto()
 
 
-class NavierStokesSolverBase:
+class SolverBase:
     """
     Class to simulate stationary fluid flow of an incompressible fluid using
     P2-P1 finite elements. The system is solved hybrid Picard-Newton iteration.
@@ -60,6 +60,8 @@ class NavierStokesSolverBase:
     _one_half = dlfn.Constant(0.5)
     _form_function_types = (dlfn.function.function.Function, ufl.tensors.ListTensor, ufl.indexed.Indexed)
     _form_trial_function_types = (dlfn.function.argument.Argument, ufl.tensors.ListTensor)
+    _sub_space_association = {0: "velocity", 1: "pressure"}
+    _field_association = {value: key for key, value in _sub_space_association.items()}
 
     def __init__(self, mesh, boundary_markers, form_convective_term="standard"):
 
@@ -133,6 +135,7 @@ class NavierStokesSolverBase:
                 elif bc_type is TractionBCType.function_component:
                     assert isinstance(traction, dlfn.Expression)
                     F += traction * w[component_index] * dA(bndry_id)
+        return F
 
     def _check_boundary_condition_format(self, bc, internal_constraint=False):
         """
@@ -548,18 +551,11 @@ class NavierStokesSolverBase:
         raise NotImplementedError("You are calling a purely virtual method.")
 
 
-class StationaryNavierStokesSolver(NavierStokesSolverBase):
+class StationarySolverBase(SolverBase):
     """
-    Class to simulate stationary fluid flow of an incompressible fluid using
-    P2-P1 finite elements. The system is solved hybrid Picard-Newton iteration.
-
-    Parameters
-    ----------
+    Class to solve stationary fluid flow of an incompressible fluid using
+    P2-P1 finite elements.
     """
-    # class variables
-    _sub_space_association = {0: "velocity", 1: "pressure"}
-    _field_association = {value: key for key, value in _sub_space_association.items()}
-    _apply_boundary_traction = False
 
     def __init__(self, mesh, boundary_markers, form_convective_term, tol=1e-10, maxiter=50,
                  tol_picard=1e-2, maxiter_picard=10):
@@ -596,7 +592,6 @@ class StationaryNavierStokesSolver(NavierStokesSolverBase):
 
         # volume element
         dV = dlfn.Measure("dx", domain=self._mesh)
-        dA = dlfn.Measure("ds", domain=self._mesh, subdomain_data=self._boundary_markers)
 
         # dimensionless parameters
         assert hasattr(self, "_Re")
@@ -611,39 +606,13 @@ class StationaryNavierStokesSolver(NavierStokesSolverBase):
                       - self._divergence_term(w, sol_p)
                       + (1. / Re) * self._viscous_term(sol_v, w)) * dV
 
+        # add boundary tractions
+        F_momentum = self._add_boundary_tractions(F_momentum, w)
+
         # add body force term
         if hasattr(self, "_body_force"):
             assert hasattr(self, "_Fr"), "Froude number is not specified."
             F_momentum -= dot(self._body_force, w) / self._Fr**2 * dV
-
-        # add boundary tractions
-        if hasattr(self, "_traction_bcs"):
-            for bc in self._traction_bcs:
-                # unpack values
-                if len(bc) == 3:
-                    bc_type, bndry_id, traction = bc
-                elif len(bc) == 4:
-                    bc_type, bndry_id, component_index, traction = bc
-                else:  # pragma: no cover
-                    raise RuntimeError()
-
-                if bc_type is TractionBCType.constant:
-                    assert isinstance(traction, (tuple, list))
-                    const_function = dlfn.Constant(traction)
-                    F_momentum += dot(const_function, w) * dA(bndry_id)
-
-                elif bc_type is TractionBCType.constant_component:
-                    assert isinstance(traction, float)
-                    const_function = dlfn.Constant(traction)
-                    F_momentum += const_function * w[component_index] * dA(bndry_id)
-
-                elif bc_type is TractionBCType.function:
-                    assert isinstance(traction, dlfn.Expression)
-                    F_momentum += dot(traction, w) * dA(bndry_id)
-
-                elif bc_type is TractionBCType.function_component:
-                    assert isinstance(traction, dlfn.Expression)
-                    F_momentum += traction * w[component_index] * dA(bndry_id)
 
         self._F = F_mass + F_momentum
 
@@ -713,9 +682,7 @@ class StationaryNavierStokesSolver(NavierStokesSolverBase):
         assert residual <= self._tol, "Newton iteration did not converge."
 
 
-class InstationaryNavierStokesSolverBase(NavierStokesSolverBase):
-    _sub_space_association = {0: "velocity", 1: "pressure"}
-    _field_association = {value: key for key, value in _sub_space_association.items()}
+class InstationarySolverBase(SolverBase):
 
     def __init__(self, mesh, boundary_markers, form_convective_term, time_stepping, tol=1e-10, max_iter=50):
 
@@ -926,7 +893,7 @@ class InstationaryNavierStokesSolverBase(NavierStokesSolverBase):
 from bdf_time_stepping import BDFTimeStepping
 
 
-class ImplicitMonolithicBDFNavierStokesSolver(InstationaryNavierStokesSolverBase):
+class ImplicitBDFSolver(InstationarySolverBase):
 
     def __init__(self, mesh, boundary_markers, form_convective_term, time_stepping, tol=1e-10, max_iter=50):
 
@@ -999,8 +966,9 @@ class ImplicitMonolithicBDFNavierStokesSolver(InstationaryNavierStokesSolverBase
                         - self._divergence_term(w, pressure)
                         + self._viscous_term(velocity, w) / Re
                         ) * dV
+
         # add boundary tractions
-        self._add_boundary_tractions(F_momentum, w)
+        F_momentum = self._add_boundary_tractions(F_momentum, w)
 
         # add body force term
         if hasattr(self, "_body_force"):

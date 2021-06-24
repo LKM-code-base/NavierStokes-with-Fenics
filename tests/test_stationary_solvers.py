@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import dolfin as dlfn
-from ns_problem import StationaryNavierStokesProblem
+from ns_problem import StationaryProblem
 from ns_solver_base import VelocityBCType
 from ns_solver_base import PressureBCType
 from ns_solver_base import TractionBCType
@@ -14,7 +14,7 @@ from grid_generator import HyperRectangleBoundaryMarkers
 dlfn.set_log_level(20)
 
 
-class CavityProblem(StationaryNavierStokesProblem):
+class CavityProblem(StationaryProblem):
     def __init__(self, n_points, main_dir=None):
         super().__init__(main_dir)
 
@@ -35,7 +35,7 @@ class CavityProblem(StationaryNavierStokesProblem):
                      (VelocityBCType.constant, HyperCubeBoundaryMarkers.top.value, (1.0, 0.0)))
 
 
-class GravityDrivenFlowProblem(StationaryNavierStokesProblem):
+class GravityDrivenFlowProblem(StationaryProblem):
     def __init__(self, n_points, main_dir=None):
         super().__init__(main_dir)
 
@@ -94,7 +94,7 @@ class GravityDrivenFlowProblem(StationaryNavierStokesProblem):
         self._body_force = dlfn.Constant((0.0, -1.0))
 
 
-class CouetteProblem(StationaryNavierStokesProblem):
+class CouetteProblem(StationaryProblem):
     def __init__(self, n_points, main_dir=None):
         super().__init__(main_dir)
 
@@ -114,7 +114,7 @@ class CouetteProblem(StationaryNavierStokesProblem):
                      (VelocityBCType.no_normal_flux, HyperCubeBoundaryMarkers.top.value, None))
 
 
-class ChannelFlowProblem(StationaryNavierStokesProblem):
+class ChannelFlowProblem(StationaryProblem):
     def __init__(self, n_points, main_dir=None, bc_type="inlet",
                  form_convective_term="standard"):
         super().__init__(main_dir, form_convective_term=form_convective_term)

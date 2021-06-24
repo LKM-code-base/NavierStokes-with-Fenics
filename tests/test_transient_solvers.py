@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import dolfin as dlfn
-from ns_problem import InstationaryNavierStokesProblem
+from ns_problem import InstationaryProblem
 from ns_problem import VelocityBCType
 from grid_generator import hyper_rectangle
 from grid_generator import open_hyper_cube
@@ -11,7 +11,7 @@ from grid_generator import HyperRectangleBoundaryMarkers
 dlfn.set_log_level(30)
 
 
-class ChannelFlowProblem(InstationaryNavierStokesProblem):
+class ChannelFlowProblem(InstationaryProblem):
     def __init__(self, n_points, main_dir=None):
         super().__init__(main_dir, start_time=0.0, end_time=1.0,
                          desired_start_time_step=0.01, n_max_steps=10)
@@ -48,7 +48,7 @@ class ChannelFlowProblem(InstationaryNavierStokesProblem):
         self._add_to_field_output(self._compute_vorticity())
 
 
-class GravityDrivenFlowProblem(InstationaryNavierStokesProblem):
+class GravityDrivenFlowProblem(InstationaryProblem):
     def __init__(self, n_points, main_dir=None):
         super().__init__(main_dir, start_time=0.0, end_time=1.0,
                          desired_start_time_step=0.01, n_max_steps=10)

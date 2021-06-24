@@ -6,8 +6,8 @@ from bdf_time_stepping import BDFTimeStepping
 import math
 from ns_solver_base import VelocityBCType
 from ns_solver_base import PressureBCType
-from ns_solver_base import StationaryNavierStokesSolver as StationarySolver
-from ns_solver_base import ImplicitMonolithicBDFNavierStokesSolver as InstationarySolver
+from ns_solver_base import StationarySolverBase as StationarySolver
+from ns_solver_base import ImplicitBDFSolver as InstationarySolver
 import numpy as np
 import os
 from os import path
@@ -269,7 +269,7 @@ class ProblemBase:
         problem.
         """
         raise NotImplementedError("You are calling a purely virtual method.")
-        
+
     def set_internal_constraints(self):  # pragma: no cover
         """
         Virtual method for specifying constraint on internal degrees of freedom
@@ -315,7 +315,8 @@ class ProblemBase:
 
         dlfn.File(fname) << self._boundary_markers
 
-class StationaryNavierStokesProblem(ProblemBase):
+
+class StationaryProblem(ProblemBase):
     """
     Class to simulate stationary fluid flow using the `StationaryNavierStokesSolver`.
 
@@ -424,7 +425,7 @@ class StationaryNavierStokesProblem(ProblemBase):
 
         # setup boundary conditions
         self.set_boundary_conditions()
-        
+
         # setup boundary conditions
         self.set_internal_constraints()
 
@@ -516,7 +517,7 @@ class StationaryNavierStokesProblem(ProblemBase):
         self._write_xdmf_file()  # pragma: no cover
 
 
-class InstationaryNavierStokesProblem(ProblemBase):
+class InstationaryProblem(ProblemBase):
     """
     Class to simulate instationary fluid flow using the `StationaryNavierStokesSolver`.
 
@@ -539,7 +540,6 @@ class InstationaryNavierStokesProblem(ProblemBase):
     def __init__(self, main_dir=None, start_time=0.0, end_time=1.0,
                  form_convective_term="standard",
                  desired_start_time_step=0.1, n_max_steps=1000,
-                 
                  tol=1e-10, maxiter=50):
         """
         Constructor of the class.

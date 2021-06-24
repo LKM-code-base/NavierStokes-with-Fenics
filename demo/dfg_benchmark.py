@@ -2,12 +2,12 @@
 # -*- coding: utf-8 -*-
 import dolfin as dlfn
 from grid_generator import channel_with_cylinder
-from ns_problem import InstationaryNavierStokesProblem
+from ns_problem import InstationaryProblem
 from ns_solver_base import VelocityBCType
 dlfn.set_log_level(40)
 
 
-class DFGBenchmark2D2(InstationaryNavierStokesProblem):
+class DFGBenchmark2D2(InstationaryProblem):
     def __init__(self, main_dir=None):
         super().__init__(main_dir, start_time=0.0, end_time=1.0,
                          desired_start_time_step=0.001, n_max_steps=50)

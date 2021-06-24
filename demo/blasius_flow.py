@@ -2,13 +2,13 @@
 # -*- coding: utf-8 -*-
 import dolfin as dlfn
 from grid_generator import blasius_plate
-from ns_problem import StationaryNavierStokesProblem
+from ns_problem import StationaryProblem
 from ns_solver_base import VelocityBCType
 
 dlfn.set_log_level(20)
 
 
-class BlasiusFlowProblem(StationaryNavierStokesProblem):
+class BlasiusFlowProblem(StationaryProblem):
     def __init__(self, main_dir=None):
         super().__init__(main_dir)
         self._problem_name = "BlasiusFlow"
