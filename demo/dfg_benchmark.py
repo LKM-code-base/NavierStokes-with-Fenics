@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 import dolfin as dlfn
 from grid_generator import channel_with_cylinder
-from navier_stokes_problem import InstationaryNavierStokesProblem
+from ns_problem import InstationaryNavierStokesProblem
 from ns_solver_base import VelocityBCType
 dlfn.set_log_level(40)
 

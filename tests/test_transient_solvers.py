@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import dolfin as dlfn
-from navier_stokes_problem import InstationaryNavierStokesProblem
-from navier_stokes_problem import VelocityBCType
+from ns_problem import InstationaryNavierStokesProblem
+from ns_problem import VelocityBCType
 from grid_generator import hyper_rectangle
 from grid_generator import open_hyper_cube
 from grid_generator import HyperCubeBoundaryMarkers

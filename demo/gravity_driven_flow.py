@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 import dolfin as dlfn
 from grid_generator import open_hyper_cube, HyperCubeBoundaryMarkers
-from navier_stokes_problem import StationaryNavierStokesProblem
+from ns_problem import StationaryNavierStokesProblem
 from ns_solver_base import VelocityBCType
 dlfn.set_log_level(20)
 

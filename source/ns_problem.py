@@ -1,20 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import os
-from os import path
-import dolfin as dlfn
-import numpy as np
-
 from auxiliary_methods import extract_all_boundary_markers
-
+import dolfin as dlfn
 from bdf_time_stepping import BDFTimeStepping
-
 import math
-
 from ns_solver_base import VelocityBCType
 from ns_solver_base import PressureBCType
 from ns_solver_base import StationaryNavierStokesSolver as StationarySolver
 from ns_solver_base import ImplicitMonolithicBDFNavierStokesSolver as InstationarySolver
+import numpy as np
+import os
+from os import path
 
 
 class ProblemBase:

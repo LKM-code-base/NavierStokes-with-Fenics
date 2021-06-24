@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import dolfin as dlfn
-from navier_stokes_problem import StationaryNavierStokesProblem
+from ns_problem import StationaryNavierStokesProblem
 from ns_solver_base import VelocityBCType
 from ns_solver_base import PressureBCType
 from ns_solver_base import TractionBCType
