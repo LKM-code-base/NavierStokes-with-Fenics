@@ -2,8 +2,10 @@
 # -*- coding: utf-8 -*-
 import dolfin as dlfn
 from grid_generator import channel_with_cylinder
+from ns_bdf_solver import ImplicitBDFSolver
 from ns_problem import InstationaryProblem
 from ns_solver_base import VelocityBCType
+
 dlfn.set_log_level(40)
 
 
@@ -18,6 +20,8 @@ class DFGBenchmark2D2(InstationaryProblem):
 
         self._output_frequency = 10
         self._postprocessing_frequency = 10
+
+        self.set_solver_class(ImplicitBDFSolver)
 
     def setup_mesh(self):
         # create mesh

@@ -7,7 +7,7 @@ import math
 from ns_solver_base import VelocityBCType
 from ns_solver_base import PressureBCType
 from ns_solver_base import StationarySolverBase as StationarySolver
-from ns_solver_base import ImplicitBDFSolver as InstationarySolver
+from ns_solver_base import InstationarySolverBase as InstationarySolver
 import numpy as np
 import os
 from os import path
@@ -672,10 +672,19 @@ class InstationaryProblem(ProblemBase):
             assert isinstance(Fr, float) and Fr > 0.0
         self._Fr = Fr
 
+    def set_solver_class(self, InstationarySolverClass):
+        """
+        Sets up the type of the solver used to solve the problem.
+        """
+        assert issubclass(InstationarySolverClass, InstationarySolver)
+        self._InstationarySolverClass = InstationarySolverClass
+
     def solve_problem(self):
         """
         Solve the stationary problem.
         """
+        assert hasattr(self, "_InstationarySolverClass")
+
         # setup mesh
         self.setup_mesh()
         assert self._mesh is not None
@@ -702,10 +711,10 @@ class InstationaryProblem(ProblemBase):
         # create solver object
         if not hasattr(self, "_navier_stokes_solver"):
             self._navier_stokes_solver = \
-                InstationarySolver(self._mesh, self._boundary_markers,
-                                   self._form_convective_term,
-                                   self._time_stepping,
-                                   self._tol, self._maxiter)
+                self._InstationarySolverClass(self._mesh, self._boundary_markers,
+                                              self._form_convective_term,
+                                              self._time_stepping,
+                                              self._tol, self._maxiter)
 
         # pass dimensionless numbers
         self._navier_stokes_solver.set_dimensionless_numbers(self._Re, self._Fr)

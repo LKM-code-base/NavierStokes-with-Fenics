@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import glob
 from grid_generator import hyper_cube
 from grid_generator import open_hyper_cube
 from grid_generator import hyper_rectangle
@@ -7,7 +8,7 @@ from grid_generator import spherical_shell
 from grid_generator import _extract_facet_markers
 import subprocess
 from os import path
-import glob
+
 
 def test_hyper_cube():
     # two-dimensional case

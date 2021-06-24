@@ -3,6 +3,7 @@
 import dolfin as dlfn
 from ns_problem import InstationaryProblem
 from ns_problem import VelocityBCType
+from ns_bdf_solver import ImplicitBDFSolver
 from grid_generator import hyper_rectangle
 from grid_generator import open_hyper_cube
 from grid_generator import HyperCubeBoundaryMarkers
@@ -23,6 +24,8 @@ class ChannelFlowProblem(InstationaryProblem):
 
         self._output_frequency = 10
         self._postprocessing_frequency = 10
+
+        self.set_solver_class(ImplicitBDFSolver)
 
     def setup_mesh(self):
         # create mesh
@@ -60,6 +63,8 @@ class GravityDrivenFlowProblem(InstationaryProblem):
 
         self._output_frequency = 10
         self._postprocessing_frequency = 10
+
+        self.set_solver_class(ImplicitBDFSolver)
 
     def setup_mesh(self):
         # create mesh

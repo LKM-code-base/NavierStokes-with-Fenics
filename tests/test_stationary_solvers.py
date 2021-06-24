@@ -210,7 +210,7 @@ def test_channel_flow():
 
 
 def test_channel_flow_convective_term():
-    for form_convective_term in  ("standard", "rotational", "divergence", "skew_symmetric"):
+    for form_convective_term in ("standard", "rotational", "divergence", "skew_symmetric"):
         channel_flow = ChannelFlowProblem(10, form_convective_term=form_convective_term)
         channel_flow.solve_problem()
 

@@ -25,7 +25,7 @@ class BlasiusFlowProblem(StationaryProblem):
         self._bcs = ((VelocityBCType.function, self._boundary_marker_map["inlet"], inlet_velocity),
                      (VelocityBCType.no_normal_flux, self._boundary_marker_map["bottom"], None),
                      (VelocityBCType.no_normal_flux, self._boundary_marker_map["top"], None))
-        
+
     def set_internal_constraints(self):
         self._internal_constraints = ((VelocityBCType.no_slip, self._boundary_marker_map["plate"], None), )
 
