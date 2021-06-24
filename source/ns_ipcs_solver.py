@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 from bdf_time_stepping import BDFTimeStepping
 import dolfin as dlfn
 from ns_solver_base import SolverBase, InstationarySolverBase
@@ -17,40 +15,23 @@ class IPCSSolver(InstationarySolverBase):
         super().__init__(mesh, boundary_markers, form_convective_term,
                          time_stepping, tol, max_iter)
 
-    def _acceleration_term(self, velocity_solutions, w):
-        # input check
-        assert isinstance(velocity_solutions, (list, tuple))
-        assert all(isinstance(x, self._form_function_types) for x in velocity_solutions)
-        assert isinstance(w, self._form_function_types)
-        # step size
-        k = self._next_step_size
-        # time stepping coefficients
-        alpha = self._alpha
-        assert len(alpha) == len(velocity_solutions)
-        # compute accelerations
-        accelerations = []
-        for i in range(len(alpha)):
-            accelerations.append(alpha[i] * dlfn.dot(velocity_solutions[i], w))
-
-        return sum(accelerations) / k
-    
     def _setup_function_spaces(self):
         """
         Class method setting up function spaces.
         """
         # create joint function space
         SolverBase._setup_function_spaces(self)
-        
+
         # create subspaces
         self._Vh = dict()
         for key, index in self._field_association.items():
-            space = dlfn.FunctionSpace(self._Wh.mesh(), 
+            space = dlfn.FunctionSpace(self._Wh.mesh(),
                                        self._Wh.sub(index).ufl_element())
             self._Vh[key] = space
-        
+
         # create joint solution
         self._joint_solution = dlfn.Function(self._Wh)
-        
+
         # create separate solutions
         self._velocities = [dlfn.Function(self._Vh["velocity"]) for _ in range(self._time_stepping.n_levels() + 1)]
         self._intermediate_velocity = dlfn.Function(self._Vh["velocity"])
@@ -74,13 +55,11 @@ class IPCSSolver(InstationarySolverBase):
             self._update_time_stepping_coefficients()
 
         self._setup_boundary_conditions()
-        
+
         # setup the diffusion step
         self._setup_diffusion_step()
-        
         # setup the projection step
         self._setup_projection_step()
-        
         # setup the correction step
         self._setup_correction_step()
 
@@ -146,7 +125,7 @@ class IPCSSolver(InstationarySolverBase):
         assert hasattr(self, "_Vh")
         assert hasattr(self, "_intermediate_velocity")
         assert hasattr(self, "_pressure")
-        
+
         # creating test and trial functions
         Vh = self._Vh["pressure"]
         p = dlfn.TrialFunction(Vh)
@@ -158,7 +137,7 @@ class IPCSSolver(InstationarySolverBase):
         # pressure projection equation
         self._projection_lhs = dlfn.dot(dlfn.grad(p), dlfn.grad(q)) * dV
         self._projection_rhs = dlfn.div(self._intermediate_velocity) * q * dV
-        
+
         # setup linear problem
         self._projection_problem = dlfn.LinearVariationalProblem(self._projection_lhs,
                                                                  self._projection_rhs,
@@ -172,16 +151,16 @@ class IPCSSolver(InstationarySolverBase):
 
         # volume element
         dV = dlfn.Measure("dx", domain=self._mesh)
-        
+
         # velocity correction step
         # creating test and trial functions
         Vh = self._Vh["velocity"]
         v = dlfn.TrialFunction(Vh)
         w = dlfn.TestFunction(Vh)
-        
+
         # velocity correction equation
-        self._velocity_correction_lhs = 
-        self._velocity_correction_rhs =
+        self._velocity_correction_lhs = None
+        self._velocity_correction_rhs = None
 
         # setup linear problem
         self._velocity_correction_problem = \
@@ -198,10 +177,10 @@ class IPCSSolver(InstationarySolverBase):
         Vh = self._Vh["pressure"]
         p = dlfn.TrialFunction(Vh)
         q = dlfn.TestFunction(Vh)
-        
+
         # pressure correction equation
-        self._pressure_correction_lhs = 
-        self._pressure_correction_rhs =
+        self._pressure_correction_lhs = None
+        self._pressure_correction_rhs = None
         # setup linear problem
         self._pressure_correction_problem = \
             dlfn.LinearVariationalProblem(self._pressure_correction_lhs,
@@ -214,17 +193,16 @@ class IPCSSolver(InstationarySolverBase):
 
     def _solve_time_step(self):
         """Solves the nonlinear problem for one time step."""
-
         dlfn.info("Solving diffusion step...")
         dlfn.info("Starting Newton iteration...")
         self._diffusion_solver.solve()
 
         dlfn.info("Solving projection step...")
         self._projection_solver.solve()
-        
+
         dlfn.info("Solving velocity correction step...")
         self._velocity_correction_solver.solve()
-        
+
         dlfn.info("Solving pressure correction step...")
         self._pressure_correction_solver.solve()
 
