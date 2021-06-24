@@ -10,6 +10,7 @@ ToDo list:
 
 - [ ] add channel flow test with periodic bcs
 - [ ] add parameter structure
+- [ ] add parameter structure
 - [ ] fix channel flow test with pure pressure bcs
 - [ ] add Taylor-Green vortex
 - [ ] modify computation of flow potential and stream function
