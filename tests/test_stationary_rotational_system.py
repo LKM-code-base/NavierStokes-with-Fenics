@@ -17,7 +17,7 @@ class RotationalProblem(StationaryProblem):
         super().__init__(main_dir)
 
         self._n_points = n_points
-        self._problem_name = "Cavity"
+        self._problem_name = "Rotational"
 
         self.set_parameters(Re=10.0, Ro=1.0)
 
