@@ -847,11 +847,11 @@ class InstationarySolverBase(SolverBase):
         if hasattr(self, "_current_body_force"):
             modify_time(self._current_body_force, current_time)
         # coriolis force at current time
-        if hasattr(self, "_current_coriolis_force"):
-            modify_time(self._current_coriolis_force, current_time)
+        #if hasattr(self, "_current_coriolis_force"):
+        #    modify_time(self._current_coriolis_force, current_time)
         # euler force at current time
-        if hasattr(self, "_current_euler_force"):
-            modify_time(self._current_euler_force, current_time)
+        #if hasattr(self, "_current_euler_force"):
+        #    modify_time(self._current_euler_force, current_time)
 
     def _solve_time_step(self):  # pragma: no cover
         """
