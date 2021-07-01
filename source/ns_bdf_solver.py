@@ -86,6 +86,16 @@ class ImplicitBDFSolver(InstationarySolverBase):
         if hasattr(self, "_body_force"):
             assert hasattr(self, "_Fr"), "Froude number is not specified."
             F_momentum -= dlfn.dot(self._body_force, w) / self._Fr**2 * dV
+            
+        # add coriolis force term
+        if hasattr(self, "_coriolis_force"):
+            assert hasattr(self, "_Ro"), "Rossby number is not specified."
+            F_momentum += dlfn.dot(self._coriolis_force, w) / self._Ro * dV
+            
+        # add euler force term
+        if hasattr(self, "_euler_force"):
+            assert hasattr(self, "_Ro"), "Rossby number is not specified."
+            F_momentum += dlfn.dot(self._euler_force, w) / self._Ro * dV
 
         # joint weak form
         self._F = F_mass + F_momentum
