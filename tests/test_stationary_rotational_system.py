@@ -46,7 +46,7 @@ class RotationalProblem(StationaryProblem):
             self._coriolis_force = 2 * dlfn.cross(Omega, sol_v)
             
     def set_euler_force(self):
-        assert isinstance(Alpha, dlfn.Constant):
+        assert isinstance(Alpha, dlfn.Constant)
         if self._mesh.geometry().dim() is 2:
             assert len(Alpha) == 1
             set._euler_force = dlfn.as_vector((-Alpha * sol_v[1], Alpha * sol_v[0]))
