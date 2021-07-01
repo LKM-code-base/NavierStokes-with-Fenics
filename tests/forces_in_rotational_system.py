@@ -16,7 +16,7 @@ def set_coriolis_force(self):
             
 def set_euler_force(self):
         
-        assert isinstance(Alpha, dlfn.Constant):
+        assert isinstance(Alpha, dlfn.Constant)
         
         if self._mesh.geometry().dim() is 2:
             
