@@ -12,14 +12,14 @@ from grid_generator import HyperRectangleBoundaryMarkers
 dlfn.set_log_level(20)
 
 
-class CavityProblem(StationaryProblem):
+class RotationalProblem(StationaryProblem):
     def __init__(self, n_points, main_dir=None):
         super().__init__(main_dir)
 
         self._n_points = n_points
         self._problem_name = "Cavity"
 
-        self.set_parameters(Re=10.0)
+        self.set_parameters(Re=10.0, Ro=1.0)
 
     def setup_mesh(self):
         # create mesh
@@ -30,12 +30,12 @@ class CavityProblem(StationaryProblem):
         self._bcs = ((VelocityBCType.no_slip, HyperCubeBoundaryMarkers.left.value, None),
                      (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.right.value, None),
                      (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.bottom.value, None),
-                     (VelocityBCType.constant, HyperCubeBoundaryMarkers.top.value, (1.0, 0.0)))
+                     (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.top.value, None)
 
-def test_cavity():
-    cavity_flow = CavityProblem(25)
-    cavity_flow.solve_problem()
+def test_rotational():
+    rotational_flow = RotationalProblem(25)
+    rotational_flow.solve_problem()
 
 
 if __name__ == "__main__":
-    test_cavity()
+    test_rotational()
