@@ -31,3 +31,6 @@ class CavityProblem(StationaryProblem):
                      (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.right.value, None),
                      (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.bottom.value, None),
                      (VelocityBCType.constant, HyperCubeBoundaryMarkers.top.value, (1.0, 0.0)))
+def test_cavity():
+    cavity_flow = CavityProblem(25)
+    cavity_flow.solve_problem()
