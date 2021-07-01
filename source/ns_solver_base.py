@@ -406,6 +406,34 @@ class SolverBase:
             assert len(body_force.ufl_shape) == 1
             assert body_force.ufl_shape[0] == self._space_dim
         self._body_force = body_force
+        
+    def set_coriolis_force(self, coriolis_force):
+        """
+        Specifies the coriolis force.
+
+        Parameters
+        ----------
+        coriolis_force : dolfin.Constant
+            The coriolis force.
+        """
+        assert isinstance(coriolis_force, dlfn.Constant)
+        assert len(coriolis_force.ufl_shape) == 1
+        assert coriolis_force.ufl_shape[0] == self._space_dim
+        self._coriolis_force = coriolis_force
+        
+    def set_euler_force(self, euler_force):
+        """
+        Specifies the euler force.
+
+        Parameters
+        ----------
+        euler_force : doflin.Constant
+            The euler force.
+        """
+        assert isinstance(euler_force, dlfn.Constant)     
+        assert len(euler_force.ufl_shape) == 1
+        assert euler_force.ufl_shape[0] == self._space_dim
+        self._euler_force = euler_force
 
     def set_boundary_conditions(self, bcs, internal_constraints=None):
         """Set the boundary conditions of the problem.
@@ -510,7 +538,7 @@ class SolverBase:
         if len(pressure_bcs) > 0:
             self._pressure_bcs = pressure_bcs
 
-    def set_dimensionless_numbers(self, Re=1.0, Fr=None):
+    def set_dimensionless_numbers(self, Re=1.0, Fr=None, Ro=None):
         """
         Updates the parameters of the model by creating or modifying class
         objects.
@@ -521,6 +549,8 @@ class SolverBase:
             Kinetic Reynolds numbers.
         Fr : float
             Froude number.
+        Ro : float
+            Rossby number.
         """
         assert isinstance(Re, float) and Re > 0.0
         if not hasattr(self, "_Re"):
@@ -534,6 +564,13 @@ class SolverBase:
                 self._Fr = dlfn.Constant(Fr)
             else:
                 self._Fr.assign(Fr)
+                
+        if Ro is not None:
+            assert isinstance(Ro, float) and Ro > 0.0
+            if not hasattr(self, "_Ro"):
+                self._Ro = dlfn.Constant(Ro)
+            else:
+                self._Ro.assign(Ro)
 
     @property
     def sub_space_association(self):
@@ -613,6 +650,14 @@ class StationarySolverBase(SolverBase):
         if hasattr(self, "_body_force"):
             assert hasattr(self, "_Fr"), "Froude number is not specified."
             F_momentum -= dot(self._body_force, w) / self._Fr**2 * dV
+            
+        if hasattr(self, "_coriolis_force"):
+            assert hasattr(self, "_Ro"), "Rossby number is not specified."
+            F_momentum += inner(self._coriolis_force, w) / self._Ro * dV
+            
+        if hasattr(self, "_euler_force"):
+            assert hasattr(self, "_Ro"), "Rossby number is not specified."
+            F_momentum += inner(self._euler_force, w)/ self._Ro * dV
 
         self._F = F_mass + F_momentum
 
@@ -722,7 +767,7 @@ class InstationarySolverBase(SolverBase):
         raise NotImplementedError("You are calling a purely virtual method.")
 
     def _set_time(self, next_time=None, current_time=None):
-        """Set time of boundary condition objects and body force."""
+        """Set time of boundary condition objects and forces."""
         # input check
         if next_time is None:
             next_time = self._time_stepping.next_time
@@ -778,6 +823,14 @@ class InstationarySolverBase(SolverBase):
         if hasattr(self, "_body_force"):
             # modify time
             modify_time(self._body_force)
+        # coriolis force
+        if hasattr(self, "_coriolis_force"):
+            # modify time
+            modify_time(self._coriolis_force)
+        # euler force
+        if hasattr(self, "_euler_force"):
+            # modify time
+            modify_time(self._euler_force)
         # traction boundary conditions at current time
         if hasattr(self, "_current_traction_bcs"):
             for bc in self._current_traction_bcs:
@@ -793,6 +846,12 @@ class InstationarySolverBase(SolverBase):
         # body force at current time
         if hasattr(self, "_current_body_force"):
             modify_time(self._current_body_force, current_time)
+        # coriolis force at current time
+        if hasattr(self, "_current_coriolis_force"):
+            modify_time(self._current_coriolis_force, current_time)
+        # euler force at current time
+        if hasattr(self, "_current_euler_force"):
+            modify_time(self._current_euler_force, current_time)
 
     def _solve_time_step(self):  # pragma: no cover
         """
