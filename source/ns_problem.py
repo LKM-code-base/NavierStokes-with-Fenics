@@ -277,9 +277,21 @@ class ProblemBase:
         """
         pass
 
-    def set_body_force(self):  # pragma: no cover
+    def set_body_force(self):  # pragma: no cover       
         """
         Virtual method for specifying the body force of the problem.
+        """
+        pass
+    
+    def set_coriolis_force(self):  # pragma: no cover       
+        """
+        Virtual method for specifying the coriolis force of the problem.
+        """
+        pass
+    
+    def set_euler_force(self):  # pragma: no cover       
+        """
+        Virtual method for specifying the euler force of the problem.
         """
         pass
 
@@ -370,6 +382,8 @@ class StationaryProblem(ProblemBase):
             Kinetic Reynolds numbers.
         Fr : float (optional)
             Froude number.
+        Ro : float (optional)
+            Rossby number.
         suffix : str (optional)
             Opitonal filename extension.
 
@@ -386,6 +400,8 @@ class StationaryProblem(ProblemBase):
         fname = problem_name + "_Re" + "{0:01.4e}".format(self._Re)
         if hasattr(self, "_Fr") and self._Fr is not None:
             fname += "_Fr" + "{0:01.4e}".format(self._Fr)
+        if hasattr(self, "_Ro") and self._Ro is not None:
+            fname += "_Ro" + "{0:01.4e}".format(self._Ro)    
         fname += self._suffix
 
         return path.join(self._results_dir, fname)
@@ -394,7 +410,7 @@ class StationaryProblem(ProblemBase):
         assert hasattr(self, "_navier_stokes_solver")
         return self._navier_stokes_solver
 
-    def set_parameters(self, Re=1.0, Fr=None):
+    def set_parameters(self, Re=1.0, Fr=None, Ro=None):
         """
         Sets up the parameters of the model by creating or modifying class
         objects.
@@ -405,6 +421,8 @@ class StationaryProblem(ProblemBase):
             Kinetic Reynolds numbers.
         Fr : float
             Froude number.
+        Ro : float
+            Rossby number.
         """
         assert isinstance(Re, float) and Re > 0.0
         self._Re = Re
@@ -412,6 +430,10 @@ class StationaryProblem(ProblemBase):
         if Fr is not None:
             assert isinstance(Fr, float) and Fr > 0.0
         self._Fr = Fr
+        
+        if Ro is not None:
+            assert isinstance(Ro, float) and Ro > 0.0
+        self._Ro = Ro
 
     def solve_problem(self):
         """
@@ -431,6 +453,12 @@ class StationaryProblem(ProblemBase):
 
         # setup has body force
         self.set_body_force()
+        
+        # setup has coriolis force
+        self.set_coriolis_force()
+        
+        # setup has euler force
+        self.set_euler_force()
 
         # setup parameters
         if not hasattr(self, "_Re"):  # pragma: no cover
@@ -452,17 +480,32 @@ class StationaryProblem(ProblemBase):
             self._navier_stokes_solver.set_boundary_conditions(self._bcs)
 
         # pass dimensionless numbers
-        self._navier_stokes_solver.set_dimensionless_numbers(self._Re, self._Fr)
+        self._navier_stokes_solver.set_dimensionless_numbers(self._Re, self._Fr, self._Ro)
 
         # pass body force
         if hasattr(self, "_body_force"):
             self._navier_stokes_solver.set_body_force(self._body_force)
+            
+        # pass coriolis force
+        if hasattr(self, "_coriolis_force"):
+            self._navier_stokes_solver.set_coriolis_force(self._coriolis_force)
+            
+        # pass euler force
+        if hasattr(self, "_euler_force"):
+            self._navier_stokes_solver.set_euler_force(self._euler_force)
 
         try:
             # solve problem
-            if self._Fr is not None:
+            if self._Fr is not None and self._Ro is None:
                 dlfn.info("Solving problem with Re = {0:.2f} and "
                           "Fr = {1:0.2f}".format(self._Re, self._Fr))
+            elif self._Fr is None and self._Ro is not None:
+                dlfn.info("Solving problem with Re = {0:.2f} and "
+                          "Ro = {1:0.2f}".format(self._Re, self._Ro))
+            elif self._Fr is not None and self._Ro is not None:
+                dlfn.info("Solving problem with Re = {0:.2f}, "
+                          "Fr = {1:0.2f} and Ro = {1:0.2f}"
+                          .format(self._Re, self._Fr, self._Ro))
             else:
                 dlfn.info("Solving problem with Re = {0:.2f}".format(self._Re))
             self._navier_stokes_solver.solve()
@@ -484,10 +527,19 @@ class StationaryProblem(ProblemBase):
             message = template.format(type(ex).__name__, ex.args)
             print(message)
 
-        if self._Fr is not None:  # pragma: no cover
+        if self._Fr is not None and self._Ro is None:  # pragma: no cover
             dlfn.info("Solving problem for Re = {0:.2f} and Fr = {1:0.2f} "
                       "without suitable initial guess failed."
                       .format(self._Re, self._Fr))
+        elif self._Fr is None and self._Ro is not None:
+            dlfn.info("Solving problem with Re = {0:.2f} and Ro = {1:0.2f} "
+                      "without suitable initial guess failed."
+                      .format(self._Re, self._Ro))
+        elif self._Fr is not None and self._Ro is not None:
+            dlfn.info("Solving problem with Re = {0:.2f}, "
+                      "Fr = {1:0.2f} and Ro = {1:0.2f} "
+                      "without suitable initial guess failed."
+                      .format(self._Re, self._Fr, self._Ro))
         else:  # pragma: no cover
             dlfn.info("Solving problem for Re = {0:.2f} without "
                       "suitable initial guess failed.".format(self._Re))
@@ -501,11 +553,18 @@ class StationaryProblem(ProblemBase):
                                  num=8, endpoint=True)  # pragma: no cover
         for Re in np.concatenate((logReRange[:-2], linReRange)):  # pragma: no cover
             # pass dimensionless numbers
-            self._navier_stokes_solver.set_dimensionless_numbers(Re, self._Fr)
+            self._navier_stokes_solver.set_dimensionless_numbers(Re, self._Fr, self._Ro)
             # solve problem
-            if self._Fr is not None:
+            if self._Fr is not None and self._Ro is None:
                 dlfn.info("Solving problem with Re = {0:.2f} and "
                           "Fr = {1:0.2f}".format(Re, self._Fr))
+            elif self._Fr is None and self._Ro is not None:
+                dlfn.info("Solving problem with Re = {0:.2f} and "
+                          "Ro = {1:0.2f}".format(self._Re, self._Ro))
+            elif self._Fr is not None and self._Ro is not None:
+                dlfn.info("Solving problem with Re = {0:.2f}, "
+                          "Fr = {1:0.2f} and Ro = {1:0.2f}"
+                          .format(self._Re, self._Fr, self._Ro))
             else:
                 dlfn.info("Solving problem with Re = {0:.2f}".format(Re))
             self._navier_stokes_solver.solve()
@@ -622,6 +681,8 @@ class InstationaryProblem(ProblemBase):
             Kinetic Reynolds numbers.
         Fr : float (optional)
             Froude number.
+        Ro : float (optional)
+            Rossby number.
         suffix : str (optional)
             Opitonal filename extension.
 
@@ -637,6 +698,8 @@ class InstationaryProblem(ProblemBase):
         fname = problem_name + "_Re" + "{0:01.4e}".format(self._Re)
         if hasattr(self, "_Fr") and self._Fr is not None:
             fname += "_Fr" + "{0:01.4e}".format(self._Fr)
+        if hasattr(self, "_Ro") and self._Ro is not None:
+            fname += "_Ro" + "{0:01.4e}".format(self._Ro)
         fname += self._suffix
 
         return path.join(self._results_dir, fname)
@@ -652,7 +715,7 @@ class InstationaryProblem(ProblemBase):
         """
         raise NotImplementedError("You are calling a purely virtual method.")
 
-    def set_parameters(self, Re=1.0, Fr=None,
+    def set_parameters(self, Re=1.0, Fr=None, Ro=None,
                        min_cfl=None, max_cfl=None):
         """
         Sets up the parameters of the model by creating or modifying class
@@ -664,6 +727,8 @@ class InstationaryProblem(ProblemBase):
             Kinetic Reynolds numbers.
         Fr : float
             Froude number.
+        Ro : float
+            Rossby number.
         """
         assert isinstance(Re, float) and Re > 0.0
         self._Re = Re
@@ -671,6 +736,10 @@ class InstationaryProblem(ProblemBase):
         if Fr is not None:
             assert isinstance(Fr, float) and Fr > 0.0
         self._Fr = Fr
+        
+        if Ro is not None:
+            assert isinstance(Ro, float) and Ro > 0.0
+        self._Ro = Ro
 
     def set_solver_class(self, InstationarySolverClass):
         """
@@ -696,6 +765,12 @@ class InstationaryProblem(ProblemBase):
 
         # setup has body force
         self.set_body_force()
+        
+        # setup has coriolis force
+        self.set_coriolis_force()
+        
+        # setup has euler force
+        self.set_euler_force()
 
         # setup parameters
         if not hasattr(self, "_Re"):  # pragma: no cover
@@ -717,11 +792,19 @@ class InstationaryProblem(ProblemBase):
                                               self._tol, self._maxiter)
 
         # pass dimensionless numbers
-        self._navier_stokes_solver.set_dimensionless_numbers(self._Re, self._Fr)
+        self._navier_stokes_solver.set_dimensionless_numbers(self._Re, self._Fr, self._Ro)
 
         # pass body force
         if hasattr(self, "_body_force"):
             self._navier_stokes_solver.set_body_force(self._body_force)
+        
+        # pass coriolis force
+        if hasattr(self, "_coriolis_force"):
+            self._navier_stokes_solver.set_coriolis_force(self._coriolis_force)
+            
+        # pass euler force
+        if hasattr(self, "_euler_force"):
+            self._navier_stokes_solver.set_euler_force(self._euler_force)
 
         # pass boundary conditions
         assert hasattr(self, "_bcs")
@@ -731,15 +814,24 @@ class InstationaryProblem(ProblemBase):
         assert hasattr(self, "_initial_conditions")
         self._navier_stokes_solver.set_initial_conditions(self._initial_conditions)
         self._write_xdmf_file(current_time=0.0)
-
-        if self._Fr is not None:
+        
+        if self._Fr is not None and self._Ro is None:
             dlfn.info("Solving problem with Re = {0:.2f} and "
                       "Fr = {1:0.2f} until time = {2:0.2f}"
                       .format(self._Re, self._Fr, self._time_stepping.end_time))
+        elif self._Fr is None and self._Ro is not None:
+            dlfn.info("Solving problem with Re = {0:.2f} and "
+                      "Ro = {1:0.2f} until time = {2:0.2f}"
+                      .format(self._Re, self._Ro, self._time_stepping.end_time))
+        elif self._Fr is not None and self._Ro is not None:
+            dlfn.info("Solving problem with Re = {0:.2f}, "
+                      "Fr = {1:0.2f} and Ro = {1:0.2f} until time = {2:0.2f}"
+                      .format(self._Re, self._Fr, self._Ro, self._time_stepping.end_time))
         else:
             dlfn.info("Solving problem with Re = {0:.2f} and "
                       "until time = {1:0.2f}"
                       .format(self._Re, self._time_stepping.end_time))
+     
         # time loop
         assert hasattr(self, "_postprocessing_frequency")
         assert hasattr(self, "_output_frequency")
