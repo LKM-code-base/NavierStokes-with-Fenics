@@ -824,13 +824,13 @@ class InstationarySolverBase(SolverBase):
             # modify time
             modify_time(self._body_force)
         # coriolis force
-        if hasattr(self, "_coriolis_force"):
-            # modify time
-            modify_time(self._coriolis_force)
+        #if hasattr(self, "_coriolis_force"):
+        #    # modify time
+        #    modify_time(self._coriolis_force)
         # euler force
-        if hasattr(self, "_euler_force"):
-            # modify time
-            modify_time(self._euler_force)
+        #if hasattr(self, "_euler_force"):
+        #    # modify time
+        #    modify_time(self._euler_force)
         # traction boundary conditions at current time
         if hasattr(self, "_current_traction_bcs"):
             for bc in self._current_traction_bcs:
