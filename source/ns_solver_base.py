@@ -231,6 +231,30 @@ class SolverBase:
         assert isinstance(v, self._form_function_types)
 
         return self._one_half * inner(grad(u) + grad(u).T, grad(v) + grad(v).T)
+    
+    def _coriolis_term(self, u, v):
+        assert isinstance(u, self._form_function_types)
+        assert isinstance(v, self._form_function_types)
+        
+        assert isinstance(self._Omega, dlfn.Constant)
+        if self._mesh.geometry().dim() == 2:
+            assert len(self._Omega.ufl_shape) == 0
+            return dot(dlfn.Constant(2) * dlfn.as_vector((-self._Omega * u[1], self._Omega * u[0])),v)  
+        else:
+            assert len(self._Omega) == 3
+            return dot(dlfn.Constant(2) * dlfn.cross(self._Omega, u), v)
+    
+    def _euler_term(self, u, v):
+        # assert isinstance(u, self._form_function_types) Find equivalent for spatial coordinate
+        assert isinstance(v, self._form_function_types)
+        
+        assert isinstance(self._Alpha, dlfn.Constant)
+        if self._mesh.geometry().dim() == 2:
+            assert len(self._Alpha.ufl_shape) == 0
+            return dot(dlfn.as_vector((-self._Alpha * u[1], self._Alpha * u[0])),v)  
+        else:
+            assert len(self._Alpha) == 3
+            return dot(dlfn.cross(self._Alpha, u), v)
 
     def _picard_linerization_convective_term(self, u, v, w):
         assert isinstance(u, self._form_function_types)
@@ -406,34 +430,6 @@ class SolverBase:
             assert len(body_force.ufl_shape) == 1
             assert body_force.ufl_shape[0] == self._space_dim
         self._body_force = body_force
-        
-    def set_coriolis_force(self, coriolis_force):
-        """
-        Specifies the coriolis force.
-
-        Parameters
-        ----------
-        coriolis_force : dolfin.Constant
-            The coriolis force.
-        """
-        assert isinstance(coriolis_force, dlfn.Constant)
-        assert len(coriolis_force.ufl_shape) == 1
-        assert coriolis_force.ufl_shape[0] == self._space_dim
-        self._coriolis_force = coriolis_force
-        
-    def set_euler_force(self, euler_force):
-        """
-        Specifies the euler force.
-
-        Parameters
-        ----------
-        euler_force : doflin.Constant
-            The euler force.
-        """
-        assert isinstance(euler_force, dlfn.Constant)     
-        assert len(euler_force.ufl_shape) == 1
-        assert euler_force.ufl_shape[0] == self._space_dim
-        self._euler_force = euler_force
 
     def set_boundary_conditions(self, bcs, internal_constraints=None):
         """Set the boundary conditions of the problem.
@@ -538,7 +534,7 @@ class SolverBase:
         if len(pressure_bcs) > 0:
             self._pressure_bcs = pressure_bcs
 
-    def set_dimensionless_numbers(self, Re=1.0, Fr=None, Ro=None):
+    def set_dimensionless_numbers(self, Re=1.0, Fr=None, Ro=None, Omega=None, Alpha=None):
         """
         Updates the parameters of the model by creating or modifying class
         objects.
@@ -551,6 +547,10 @@ class SolverBase:
             Froude number.
         Ro : float
             Rossby number.
+        Omega : dlfn.Constant
+            Angular velocity
+        Alpha : dlfn.Constant
+            Angular acceleration
         """
         assert isinstance(Re, float) and Re > 0.0
         if not hasattr(self, "_Re"):
@@ -571,6 +571,20 @@ class SolverBase:
                 self._Ro = dlfn.Constant(Ro)
             else:
                 self._Ro.assign(Ro)
+                
+        if Omega is not None:
+            assert isinstance(Omega, dlfn.Constant)
+            if not hasattr(self, "_Omega"):
+                self._Omega = dlfn.Constant(Omega)
+            else:
+                self._Omega.assign(Omega)
+                
+        if Alpha is not None:
+            assert isinstance(Alpha, dlfn.Constant)
+            if not hasattr(self, "_Alpha"):
+                self._Alpha = dlfn.Constant(Alpha)
+            else:
+                self._Alpha.assign(Alpha)
 
     @property
     def sub_space_association(self):
@@ -651,13 +665,15 @@ class StationarySolverBase(SolverBase):
             assert hasattr(self, "_Fr"), "Froude number is not specified."
             F_momentum -= dot(self._body_force, w) / self._Fr**2 * dV
             
-        if hasattr(self, "_coriolis_force"):
+        # add coriolis force term
+        if hasattr(self, "_Omega") and self._Omega is not None:
             assert hasattr(self, "_Ro"), "Rossby number is not specified."
-            F_momentum += inner(self._coriolis_force, w) / self._Ro * dV
+            F_momentum += self._coriolis_term(sol_v, w) / self._Ro * dV
             
-        if hasattr(self, "_euler_force"):
+        # add euler force term
+        if hasattr(self, "_Alpha") and self._Alpha is not None:
             assert hasattr(self, "_Ro"), "Rossby number is not specified."
-            F_momentum += inner(self._euler_force, w)/ self._Ro * dV
+            F_momentum += self._euler_term(dlfn.SpatialCoordinate(self._mesh), w) / self._Ro * dV
 
         self._F = F_mass + F_momentum
 
