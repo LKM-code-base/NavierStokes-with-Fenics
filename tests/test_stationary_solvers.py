@@ -5,6 +5,7 @@ from ns_problem import StationaryProblem
 from ns_solver_base import VelocityBCType
 from ns_solver_base import PressureBCType
 from ns_solver_base import TractionBCType
+from grid_generator import blasius_plate
 from grid_generator import hyper_cube
 from grid_generator import hyper_rectangle
 from grid_generator import open_hyper_cube
@@ -221,21 +222,14 @@ class BlasiusFlowProblem(StationaryProblem):
         self._add_to_field_output(self._compute_vorticity())
 
 
-if __name__ == "__main__":
+def test_blasius_flow():
     blasius_flow = BlasiusFlowProblem()
     blasius_flow.solve_problem()
-
-
 
 
 def test_cavity():
     cavity_flow = CavityProblem(25)
     cavity_flow.solve_problem()
-
-
-def test_gravity_driven_flow():
-    gravity_flow = GravityDrivenFlowProblem(25)
-    gravity_flow.solve_problem()
 
 
 def test_channel_flow():
@@ -255,7 +249,15 @@ def test_couette_flow():
     couette_flow.solve_problem()
 
 
+def test_gravity_driven_flow():
+    gravity_flow = GravityDrivenFlowProblem(25)
+    gravity_flow.solve_problem()
+
+
 if __name__ == "__main__":
+    test_blasius_flow()
     test_cavity()
-    test_gravity_driven_flow()
+    test_channel_flow()
+    test_channel_flow_convective_term()
     test_couette_flow()
+    test_gravity_driven_flow()
