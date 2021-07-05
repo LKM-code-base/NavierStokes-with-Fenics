@@ -30,7 +30,7 @@ class RotationalProblem(StationaryProblem):
         self._bcs = ((VelocityBCType.no_slip, HyperCubeBoundaryMarkers.left.value, None),
                      (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.right.value, None),
                      (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.bottom.value, None),
-                     (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.top.value, None)
+                     (VelocityBCType.constant, HyperCubeBoundaryMarkers.top.value, (1.0, 0.0)))
  
 def test_rotational():
     rotational_flow = RotationalProblem(25)
