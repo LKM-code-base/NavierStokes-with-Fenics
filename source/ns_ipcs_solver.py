@@ -159,7 +159,7 @@ class IPCSSolver(InstationarySolverBase):
         w = dlfn.TestFunction(Vh)
 
         # velocity correction equation
-        self._velocity_correction_lhs = dlfn.dot(velocities[0], v) * dV
+        self._velocity_correction_lhs = dlfn.dot(self._velocities[0], v) * dV
         self._velocity_correction_rhs = (dlfn.dot(self._intermediate_velocity, v) - (self._next_step_size / self._alpha[0]) * dlfn.dot(dlfn.grad(self._phi)), v) * dV
 
         # setup linear problem
