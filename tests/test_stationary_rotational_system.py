@@ -19,7 +19,7 @@ class RotationalProblem(StationaryProblem):
         self._n_points = n_points
         self._problem_name = "Rotational"
 
-        self.set_parameters(Re=10.0, Ro=1.0)
+        self.set_parameters(Re=10.0, Ro=1.0, Omega=dlfn.Constant(50), Alpha=dlfn.Constant(0))
 
     def setup_mesh(self):
         # create mesh
@@ -31,29 +31,7 @@ class RotationalProblem(StationaryProblem):
                      (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.right.value, None),
                      (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.bottom.value, None),
                      (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.top.value, None)
-    
-    # defining angular velocity and acceleration
-    Omega = dlfn.Constant(1.0)
-    Alpha = dlfn.Constant(1.0)
-    
-    #def set_coriolis_force(self):
-    #    assert isinstance(Omega, dlfn.Constant)
-    #    if self._mesh.geometry().dim() is 2:
-    #        assert len(Omega) == 1
-    #        set._coriolis_force = 2 * dlfn.as_vector((-Omega * sol_v[1], Omega * sol_v[0]))  
-    #    else:
-    #        assert len(Omega) == 3
-    #        self._coriolis_force = 2 * dlfn.cross(Omega, sol_v)
-            
-    #def set_euler_force(self):
-    #    assert isinstance(Alpha, dlfn.Constant)
-    #    if self._mesh.geometry().dim() is 2:
-    #        assert len(Alpha) == 1
-    #        set._euler_force = dlfn.as_vector((-Alpha * sol_v[1], Alpha * sol_v[0]))
-    #    else:
-    #        assert len(Alpha) == 3
-    #        self._euler_force = dlfn.cross(Alpha, sol_v)
-
+ 
 def test_rotational():
     rotational_flow = RotationalProblem(25)
     rotational_flow.solve_problem()
