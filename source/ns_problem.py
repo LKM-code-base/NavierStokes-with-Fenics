@@ -282,18 +282,6 @@ class ProblemBase:
         Virtual method for specifying the body force of the problem.
         """
         pass
-    
-    def set_coriolis_force(self):  # pragma: no cover       
-        """
-        Virtual method for specifying the coriolis force of the problem.
-        """
-        pass
-    
-    def set_euler_force(self):  # pragma: no cover       
-        """
-        Virtual method for specifying the euler force of the problem.
-        """
-        pass
 
     def solve_problem(self):  # pragma: no cover
         """
@@ -401,7 +389,11 @@ class StationaryProblem(ProblemBase):
         if hasattr(self, "_Fr") and self._Fr is not None:
             fname += "_Fr" + "{0:01.4e}".format(self._Fr)
         if hasattr(self, "_Ro") and self._Ro is not None:
-            fname += "_Ro" + "{0:01.4e}".format(self._Ro)    
+            fname += "_Ro" + "{0:01.4e}".format(self._Ro)
+        #if hasattr(self, "_Omega") and self._Omega is not None:
+        #    fname += "_Omega"
+        #if hasattr(self, "_Alpha") and self._Alpha is not None:
+        #    fname += "_Alpha"
         fname += self._suffix
 
         return path.join(self._results_dir, fname)
@@ -410,7 +402,7 @@ class StationaryProblem(ProblemBase):
         assert hasattr(self, "_navier_stokes_solver")
         return self._navier_stokes_solver
 
-    def set_parameters(self, Re=1.0, Fr=None, Ro=None):
+    def set_parameters(self, Re=1.0, Fr=None, Ro=None, Omega=None, Alpha=None):
         """
         Sets up the parameters of the model by creating or modifying class
         objects.
@@ -423,6 +415,10 @@ class StationaryProblem(ProblemBase):
             Froude number.
         Ro : float
             Rossby number.
+        Omega : float.
+            Angular velocity.
+        Alpha :
+            Angular acceleration.
         """
         assert isinstance(Re, float) and Re > 0.0
         self._Re = Re
@@ -434,6 +430,14 @@ class StationaryProblem(ProblemBase):
         if Ro is not None:
             assert isinstance(Ro, float) and Ro > 0.0
         self._Ro = Ro
+        
+        if Omega is not None:
+            assert isinstance(Omega, dlfn.Constant)
+        self._Omega = Omega
+            
+        if Alpha is not None:
+            assert isinstance(Alpha, dlfn.Constant)
+        self._Alpha = Alpha
 
     def solve_problem(self):
         """
@@ -453,12 +457,6 @@ class StationaryProblem(ProblemBase):
 
         # setup has body force
         self.set_body_force()
-        
-        # setup has coriolis force
-        self.set_coriolis_force()
-        
-        # setup has euler force
-        self.set_euler_force()
 
         # setup parameters
         if not hasattr(self, "_Re"):  # pragma: no cover
@@ -480,19 +478,11 @@ class StationaryProblem(ProblemBase):
             self._navier_stokes_solver.set_boundary_conditions(self._bcs)
 
         # pass dimensionless numbers
-        self._navier_stokes_solver.set_dimensionless_numbers(self._Re, self._Fr, self._Ro)
+        self._navier_stokes_solver.set_dimensionless_numbers(self._Re, self._Fr, self._Ro, self._Omega, self._Alpha)
 
         # pass body force
         if hasattr(self, "_body_force"):
             self._navier_stokes_solver.set_body_force(self._body_force)
-            
-        # pass coriolis force
-        if hasattr(self, "_coriolis_force"):
-            self._navier_stokes_solver.set_coriolis_force(self._coriolis_force)
-            
-        # pass euler force
-        if hasattr(self, "_euler_force"):
-            self._navier_stokes_solver.set_euler_force(self._euler_force)
 
         try:
             # solve problem
@@ -700,6 +690,10 @@ class InstationaryProblem(ProblemBase):
             fname += "_Fr" + "{0:01.4e}".format(self._Fr)
         if hasattr(self, "_Ro") and self._Ro is not None:
             fname += "_Ro" + "{0:01.4e}".format(self._Ro)
+        #if hasattr(self, "_Omega") and self._Omega is not None:
+        #    fname += "_Omega"
+        #if hasattr(self, "_Alpha") and self._Alpha is not None:
+        #    fname += "_Alpha"
         fname += self._suffix
 
         return path.join(self._results_dir, fname)
@@ -715,7 +709,7 @@ class InstationaryProblem(ProblemBase):
         """
         raise NotImplementedError("You are calling a purely virtual method.")
 
-    def set_parameters(self, Re=1.0, Fr=None, Ro=None,
+    def set_parameters(self, Re=1.0, Fr=None, Ro=None, Omega=None, Alpha=None,
                        min_cfl=None, max_cfl=None):
         """
         Sets up the parameters of the model by creating or modifying class
@@ -729,6 +723,10 @@ class InstationaryProblem(ProblemBase):
             Froude number.
         Ro : float
             Rossby number.
+        Omega : dlfn.Constant
+            Angular velocity.
+        Alpha : dlfn.Constant
+            Angular acceleration.
         """
         assert isinstance(Re, float) and Re > 0.0
         self._Re = Re
@@ -741,6 +739,14 @@ class InstationaryProblem(ProblemBase):
             assert isinstance(Ro, float) and Ro > 0.0
         self._Ro = Ro
 
+        if Omega is not None:
+            assert isinstance(Omega, dlfn.Constant)
+        self._Omega = Omega
+        
+        if Alpha is not None:
+            assert isinstance(Alpha, dlfn.Constant)
+        self._Alpha = Alpha
+        
     def set_solver_class(self, InstationarySolverClass):
         """
         Sets up the type of the solver used to solve the problem.
@@ -765,12 +771,6 @@ class InstationaryProblem(ProblemBase):
 
         # setup has body force
         self.set_body_force()
-        
-        # setup has coriolis force
-        self.set_coriolis_force()
-        
-        # setup has euler force
-        self.set_euler_force()
 
         # setup parameters
         if not hasattr(self, "_Re"):  # pragma: no cover
@@ -792,19 +792,11 @@ class InstationaryProblem(ProblemBase):
                                               self._tol, self._maxiter)
 
         # pass dimensionless numbers
-        self._navier_stokes_solver.set_dimensionless_numbers(self._Re, self._Fr, self._Ro)
+        self._navier_stokes_solver.set_dimensionless_numbers(self._Re, self._Fr, self._Ro, self._Omega, self._Alpha)
 
         # pass body force
         if hasattr(self, "_body_force"):
             self._navier_stokes_solver.set_body_force(self._body_force)
-        
-        # pass coriolis force
-        if hasattr(self, "_coriolis_force"):
-            self._navier_stokes_solver.set_coriolis_force(self._coriolis_force)
-            
-        # pass euler force
-        if hasattr(self, "_euler_force"):
-            self._navier_stokes_solver.set_euler_force(self._euler_force)
 
         # pass boundary conditions
         assert hasattr(self, "_bcs")
