@@ -95,7 +95,7 @@ class ImplicitBDFSolver(InstationarySolverBase):
         # add euler force term
         if hasattr(self, "_Alpha"):
             assert hasattr(self, "_Ro"), "Rossby number is not specified."
-            F_momentum += self._euler_term(dlfn.SpatialCoordinate(self._mesh), w) / self._Ro * dV
+            F_momentum += self._euler_term(w) / self._Ro * dV
 
         # joint weak form
         self._F = F_mass + F_momentum
