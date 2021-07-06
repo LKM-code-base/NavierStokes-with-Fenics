@@ -16,6 +16,9 @@ jobs:
         python-version: 3.8
     - name: Checkout submodules
       uses: textbook/git-checkout-submodule-action@2.1.1
+    - name: Install gmsh
+      run: |
+        apt-get install gmsh
     - name: Add conda to system path
       run: |
         # $CONDA is an environment variable pointing to the root of the miniconda directory
