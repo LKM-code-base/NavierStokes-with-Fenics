@@ -61,7 +61,7 @@ def test_rotational_cavity():
     rotational_cavity_flow.solve_problem()
     
 def test_rotational_couette():
-    rotational_couette_flow = RotationalCouetteFlow(3, (1.0, 0.25))
+    rotational_couette_flow = RotationalCouetteFlow(3, (0.25, 1.0))
     rotational_couette_flow.solve_problem()
 
 
