@@ -390,10 +390,6 @@ class StationaryProblem(ProblemBase):
             fname += "_Fr" + "{0:01.4e}".format(self._Fr)
         if hasattr(self, "_Ro") and self._Ro is not None:
             fname += "_Ro" + "{0:01.4e}".format(self._Ro)
-        #if hasattr(self, "_Omega") and self._Omega is not None:
-        #    fname += "_Omega"
-        #if hasattr(self, "_Alpha") and self._Alpha is not None:
-        #    fname += "_Alpha"
         fname += self._suffix
 
         return path.join(self._results_dir, fname)
@@ -690,10 +686,6 @@ class InstationaryProblem(ProblemBase):
             fname += "_Fr" + "{0:01.4e}".format(self._Fr)
         if hasattr(self, "_Ro") and self._Ro is not None:
             fname += "_Ro" + "{0:01.4e}".format(self._Ro)
-        #if hasattr(self, "_Omega") and self._Omega is not None:
-        #    fname += "_Omega"
-        #if hasattr(self, "_Alpha") and self._Alpha is not None:
-        #    fname += "_Alpha"
         fname += self._suffix
 
         return path.join(self._results_dir, fname)
