@@ -35,7 +35,7 @@ jobs:
       run: |
         conda install pytest
         conda install pytest-cov
-        export PYTHONPATH=source
+        export PYTHONPATH=$(pwd)/source:$(pwd)/gmsh-collection/python
         pytest --cov=source --ignore=gmsh-collection/
     - name: "Upload coverage to Codecov"
       uses: codecov/codecov-action@v1
