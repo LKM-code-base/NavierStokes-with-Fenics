@@ -8,6 +8,8 @@ from grid_generator import hyper_rectangle
 from grid_generator import open_hyper_cube
 from grid_generator import HyperCubeBoundaryMarkers
 from grid_generator import HyperRectangleBoundaryMarkers
+from grid_generator import spherical_shell
+from grid_generator import SphericalAnnulusBoundaryMarkers
 
 dlfn.set_log_level(20)
 
