@@ -239,19 +239,18 @@ class SolverBase:
         assert isinstance(self._Omega, dlfn.Constant)
         if self._mesh.geometry().dim() == 2:
             assert len(self._Omega.ufl_shape) == 0
-            return dot(dlfn.Constant(2) * dlfn.as_vector((-self._Omega * u[1], self._Omega * u[0])),v)  
+            return dot(dlfn.Constant(2) * dlfn.as_vector((-self._Omega * u[1], self._Omega * u[0])), v)  
         else:
             assert len(self._Omega) == 3
             return dot(dlfn.Constant(2) * dlfn.cross(self._Omega, u), v)
     
-    def _euler_term(self, u, v):
-        # assert isinstance(u, self._form_function_types) Find equivalent for spatial coordinate
+    def _euler_term(self, v):
         assert isinstance(v, self._form_function_types)
         
         assert isinstance(self._Alpha, dlfn.Constant)
         if self._mesh.geometry().dim() == 2:
             assert len(self._Alpha.ufl_shape) == 0
-            return dot(dlfn.as_vector((-self._Alpha * u[1], self._Alpha * u[0])),v)  
+            return dot(dlfn.as_vector((-self._Alpha * dlfn.SpatialCoordinate(self._mesh)[1], self._Alpha * dlfn.SpatialCoordinate(self._mesh)[0])), v)  
         else:
             assert len(self._Alpha) == 3
             return dot(dlfn.cross(self._Alpha, u), v)
@@ -673,7 +672,7 @@ class StationarySolverBase(SolverBase):
         # add euler force term
         if hasattr(self, "_Alpha") and self._Alpha is not None:
             assert hasattr(self, "_Ro"), "Rossby number is not specified."
-            F_momentum += self._euler_term(dlfn.SpatialCoordinate(self._mesh), w) / self._Ro * dV
+            F_momentum += self._euler_term(w) / self._Ro * dV
 
         self._F = F_mass + F_momentum
 
@@ -839,14 +838,6 @@ class InstationarySolverBase(SolverBase):
         if hasattr(self, "_body_force"):
             # modify time
             modify_time(self._body_force)
-        # coriolis force
-        #if hasattr(self, "_coriolis_force"):
-        #    # modify time
-        #    modify_time(self._coriolis_force)
-        # euler force
-        #if hasattr(self, "_euler_force"):
-        #    # modify time
-        #    modify_time(self._euler_force)
         # traction boundary conditions at current time
         if hasattr(self, "_current_traction_bcs"):
             for bc in self._current_traction_bcs:
@@ -862,12 +853,6 @@ class InstationarySolverBase(SolverBase):
         # body force at current time
         if hasattr(self, "_current_body_force"):
             modify_time(self._current_body_force, current_time)
-        # coriolis force at current time
-        #if hasattr(self, "_current_coriolis_force"):
-        #    modify_time(self._current_coriolis_force, current_time)
-        # euler force at current time
-        #if hasattr(self, "_current_euler_force"):
-        #    modify_time(self._current_euler_force, current_time)
 
     def _solve_time_step(self):  # pragma: no cover
         """
