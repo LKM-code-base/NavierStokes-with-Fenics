@@ -253,7 +253,7 @@ class SolverBase:
             return dot(dlfn.as_vector((-self._Alpha * dlfn.SpatialCoordinate(self._mesh)[1], self._Alpha * dlfn.SpatialCoordinate(self._mesh)[0])), v)  
         else:
             assert len(self._Alpha) == 3
-            return dot(dlfn.cross(self._Alpha, u), v)
+            return dot(dlfn.cross(self._Alpha, dlfn.SpatialCoordinate(self._mesh)), v)
 
     def _picard_linerization_convective_term(self, u, v, w):
         assert isinstance(u, self._form_function_types)
