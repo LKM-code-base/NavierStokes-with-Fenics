@@ -135,8 +135,8 @@ class IPCSSolver(InstationarySolverBase):
         dV = dlfn.Measure("dx", domain=self._mesh)
 
         # pressure projection equation
-        self._projection_lhs = dlfn.dot(dlfn.grad(p), dlfn.grad(q)) * dV
-        self._projection_rhs = dlfn.div(self._intermediate_velocity) * q * dV
+        self._pressure_correction_lhs = dlfn.dot(dlfn.grad(self._phi), dlfn.grad(q)) * dV
+        self._pressure_correction_rhs = (-self._alpha[0]/self._next_step_size) * dlfn.dot(dlfn.div(self._intermediate_velocity), q) * dV
 
         # setup linear problem
         self._projection_problem = dlfn.LinearVariationalProblem(self._projection_lhs,
@@ -172,24 +172,24 @@ class IPCSSolver(InstationarySolverBase):
         self._velocity_correction_solver = \
             dlfn.LinearVariationalSolver(self._velocity_correction_problem)
 
-        # pressure correction step
-        # creating test and trial functions
-        Vh = self._Vh["pressure"]
-        p = dlfn.TrialFunction(Vh)
-        q = dlfn.TestFunction(Vh)
+        ## pressure correction step
+        ## creating test and trial functions
+        #Vh = self._Vh["pressure"]
+        #p = dlfn.TrialFunction(Vh)
+        #q = dlfn.TestFunction(Vh)
 
-        # pressure correction equation
-        self._pressure_correction_lhs = dlfn.dot(dlfn.grad(self._phi), dlfn.grad(q)) * dV
-        self._pressure_correction_rhs = (-self._alpha[0]/self._next_step_size) * dlfn.dot(dlfn.div(self._intermediate_velocity), q) * dV
-        # setup linear problem
-        self._pressure_correction_problem = \
-            dlfn.LinearVariationalProblem(self._pressure_correction_lhs,
-                                          self._pressure_correction_rhs,
-                                          self._pressure,
-                                          self._dirichlet_bcs_pressure)
-        # setup linear solver
-        self._pressure_correction_solver = \
-            dlfn.LinearVariationalSolver(self._pressure_correction_problem)
+        ## pressure correction equation
+        #self._pressure_correction_lhs = dlfn.dot(dlfn.grad(self._phi), dlfn.grad(q)) * dV
+        #self._pressure_correction_rhs = (-self._alpha[0]/self._next_step_size) * dlfn.dot(dlfn.div(self._intermediate_velocity), q) * dV
+        ## setup linear problem
+        #self._pressure_correction_problem = \
+        #    dlfn.LinearVariationalProblem(self._pressure_correction_lhs,
+        #                                  self._pressure_correction_rhs,
+        #                                  self._pressure,
+        #                                  self._dirichlet_bcs_pressure)
+        ## setup linear solver
+        #self._pressure_correction_solver = \
+        #    dlfn.LinearVariationalSolver(self._pressure_correction_problem)
 
     def _solve_time_step(self):
         """Solves the nonlinear problem for one time step."""
