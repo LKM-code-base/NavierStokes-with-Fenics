@@ -22,12 +22,13 @@ jobs:
     - name: Generate msh files
       shell: bash
       run: |
-        pwd && ls -l
-        gmsh -3 gmsh-collection/meshes/BlasiusFlowProblem.geo
-        # for file in gmsh-collection/meshes/*.geo; do
-        #   name=$(echo "$file" | cut -f 1 -d '.')
-        #   gmsh -3 "$name.geo" "$name.msh"
-        # done
+        mkdir meshes
+        for inputfile in gmsh-collection/meshes/*.geo; do 
+          name=$(echo "$inputfile" | cut --fields=1,2 --complement --delimiter='/' );
+          name=$(echo "$name" | cut --fields=1 --delimiter='.');
+          outputfile="meshes/$name.msh";
+          gmsh $inputfile -3 -o $outputfile;
+        done
     - name: Add conda to system path
       run: |
         # $CONDA is an environment variable pointing to the root of the miniconda directory
