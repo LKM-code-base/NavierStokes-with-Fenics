@@ -22,10 +22,11 @@ jobs:
     - name: Generate msh files
       shell: bash
       run: |
-        for file in gmsh-collection/meshes/*.geo; do
-          name=$(echo "$file" | cut -f 1 -d '.')
-          gmsh -3 "$name.geo" "$name.msh"
-        done
+        gmsh -3 gmsh-collection/meshes/BlasiusFlowProblem.geo gmsh-collection/meshes/BlasiusFlowProblem.msh
+        # for file in gmsh-collection/meshes/*.geo; do
+        #   name=$(echo "$file" | cut -f 1 -d '.')
+        #   gmsh -3 "$name.geo" "$name.msh"
+        # done
     - name: Add conda to system path
       run: |
         # $CONDA is an environment variable pointing to the root of the miniconda directory
