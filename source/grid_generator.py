@@ -390,6 +390,23 @@ def _extract_facet_markers(geo_filename):
     return facet_markers
 
 
+def _locate_file(basename):
+    """Locate a file in the current directory.
+    """
+    file_extension = path.splitext(basename)[1]
+    files = glob.glob("../*/*/*" + file_extension, recursive=True)
+    files += glob.glob("./*/*" + file_extension, recursive=True)
+    files += glob.glob("./*/*/*" + file_extension, recursive=True)
+    file = None
+    for f in files:
+        if basename in f:
+            file = f
+            break
+    if file is not None:
+        assert path.exists(file)
+    return file
+
+
 def channel_with_cylinder():  # pragma: no cover
     """Create a mesh of a channel with a cylinder.
 
@@ -475,22 +492,15 @@ def blasius_plate():  # pragma: no cover
     associated xdmf files must already exist.
     """
     # locate geo file
-    fname = "BlasiusFlowProblem.geo"
-    geo_files = glob.glob("../*/*/*.geo", recursive=True)
-    geo_files += glob.glob("./*/*/*.geo", recursive=True)
-    for file in geo_files:
-        if fname in file:
-            geo_file = file
-            break
-    assert path.exists(geo_file)
-
+    basename = "BlasiusFlowProblem.geo"
+    geo_file = _locate_file(basename)
+    assert geo_file is not None
     facet_marker_map = _extract_facet_markers(geo_file)
     # define xdmf files
-    filename = geo_file[:geo_file.index(".geo")]
-    xdmf_facet_marker_file = filename + "_facet_markers.xdmf"
-    xdmf_file = geo_file.replace(".geo", ".xdmf")
+    xdmf_file = _locate_file(basename.replace(".geo", ".xdmf"))
+    xdmf_facet_marker_file = _locate_file(basename.replace(".geo", "_facet_markers.xdmf"))
     # check if xdmf files exist
-    if not path.exists(xdmf_file) or not path.exists(xdmf_facet_marker_file):
+    if xdmf_file is None or xdmf_facet_marker_file is None:
         from grid_tools import generate_xdmf_mesh
         generate_xdmf_mesh(geo_file)
     # read xdmf files
