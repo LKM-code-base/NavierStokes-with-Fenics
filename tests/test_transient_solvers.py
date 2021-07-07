@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import dolfin as dlfn
-from navier_stokes_problem import InstationaryNavierStokesProblem
-from navier_stokes_problem import VelocityBCType
+from ns_problem import InstationaryProblem
+from ns_problem import VelocityBCType
+from ns_bdf_solver import ImplicitBDFSolver
 from grid_generator import hyper_rectangle
 from grid_generator import open_hyper_cube
 from grid_generator import HyperCubeBoundaryMarkers
 from grid_generator import HyperRectangleBoundaryMarkers
-from imex_time_stepping import IMEXType
 
 dlfn.set_log_level(30)
 
 
-class ChannelFlowProblem(InstationaryNavierStokesProblem):
+class ChannelFlowProblem(InstationaryProblem):
     def __init__(self, n_points, main_dir=None):
         super().__init__(main_dir, start_time=0.0, end_time=1.0,
                          desired_start_time_step=0.01, n_max_steps=10)
@@ -20,11 +20,12 @@ class ChannelFlowProblem(InstationaryNavierStokesProblem):
         self._n_points = n_points
         self._problem_name = "ChannelFlow"
 
-        self._imex_type = IMEXType.SBDF2
         self.set_parameters(Re=10.0)
 
         self._output_frequency = 10
         self._postprocessing_frequency = 10
+
+        self.set_solver_class(ImplicitBDFSolver)
 
     def setup_mesh(self):
         # create mesh
@@ -50,7 +51,7 @@ class ChannelFlowProblem(InstationaryNavierStokesProblem):
         self._add_to_field_output(self._compute_vorticity())
 
 
-class GravityDrivenFlowProblem(InstationaryNavierStokesProblem):
+class GravityDrivenFlowProblem(InstationaryProblem):
     def __init__(self, n_points, main_dir=None):
         super().__init__(main_dir, start_time=0.0, end_time=1.0,
                          desired_start_time_step=0.01, n_max_steps=10)
@@ -58,11 +59,12 @@ class GravityDrivenFlowProblem(InstationaryNavierStokesProblem):
         self._n_points = n_points
         self._problem_name = "OpenCubeTransient"
 
-        self._imex_type = IMEXType.SBDF2
         self.set_parameters(Re=100.0, Fr=1.0)
 
         self._output_frequency = 10
         self._postprocessing_frequency = 10
+
+        self.set_solver_class(ImplicitBDFSolver)
 
     def setup_mesh(self):
         # create mesh

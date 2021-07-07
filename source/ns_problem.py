@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 from auxiliary_methods import extract_all_boundary_markers
-from bdf_time_stepping import BDFTimeStepping
 import dolfin as dlfn
+from bdf_time_stepping import BDFTimeStepping
 import math
 from ns_solver_base import VelocityBCType
 from ns_solver_base import PressureBCType
-from ns_solver_base import StationaryNavierStokesSolver as StationarySolver
-from navier_stokes_implicit_bdf_solver import ImplicitBDFNavierStokesSolver as InstationarySolver
+from ns_solver_base import StationarySolverBase as StationarySolver
+from ns_solver_base import InstationarySolverBase as InstationarySolver
 import numpy as np
 import os
 from os import path
@@ -269,7 +269,7 @@ class ProblemBase:
         problem.
         """
         raise NotImplementedError("You are calling a purely virtual method.")
-        
+
     def set_internal_constraints(self):  # pragma: no cover
         """
         Virtual method for specifying constraint on internal degrees of freedom
@@ -315,7 +315,8 @@ class ProblemBase:
 
         dlfn.File(fname) << self._boundary_markers
 
-class StationaryNavierStokesProblem(ProblemBase):
+
+class StationaryProblem(ProblemBase):
     """
     Class to simulate stationary fluid flow using the `StationaryNavierStokesSolver`.
 
@@ -424,7 +425,7 @@ class StationaryNavierStokesProblem(ProblemBase):
 
         # setup boundary conditions
         self.set_boundary_conditions()
-        
+
         # setup boundary conditions
         self.set_internal_constraints()
 
@@ -516,7 +517,7 @@ class StationaryNavierStokesProblem(ProblemBase):
         self._write_xdmf_file()  # pragma: no cover
 
 
-class InstationaryNavierStokesProblem(ProblemBase):
+class InstationaryProblem(ProblemBase):
     """
     Class to simulate instationary fluid flow using the `StationaryNavierStokesSolver`.
 
@@ -539,7 +540,6 @@ class InstationaryNavierStokesProblem(ProblemBase):
     def __init__(self, main_dir=None, start_time=0.0, end_time=1.0,
                  form_convective_term="standard",
                  desired_start_time_step=0.1, n_max_steps=1000,
-                 
                  tol=1e-10, maxiter=50):
         """
         Constructor of the class.
@@ -653,7 +653,6 @@ class InstationaryNavierStokesProblem(ProblemBase):
         raise NotImplementedError("You are calling a purely virtual method.")
 
     def set_parameters(self, Re=1.0, Fr=None,
-                       imex_type=None,
                        min_cfl=None, max_cfl=None):
         """
         Sets up the parameters of the model by creating or modifying class
@@ -673,10 +672,19 @@ class InstationaryNavierStokesProblem(ProblemBase):
             assert isinstance(Fr, float) and Fr > 0.0
         self._Fr = Fr
 
+    def set_solver_class(self, InstationarySolverClass):
+        """
+        Sets up the type of the solver used to solve the problem.
+        """
+        assert issubclass(InstationarySolverClass, InstationarySolver)
+        self._InstationarySolverClass = InstationarySolverClass
+
     def solve_problem(self):
         """
         Solve the stationary problem.
         """
+        assert hasattr(self, "_InstationarySolverClass")
+
         # setup mesh
         self.setup_mesh()
         assert self._mesh is not None
@@ -696,18 +704,17 @@ class InstationaryNavierStokesProblem(ProblemBase):
         # set initial condition
         self.set_initial_conditions()
 
-        # create IMEX object
-        assert hasattr(self, "_imex_type")
+        # create time stepping object
         self._time_stepping = BDFTimeStepping(self._start_time, self._end_time,
                                               desired_start_time_step=self._desired_start_time_step)
 
         # create solver object
         if not hasattr(self, "_navier_stokes_solver"):
             self._navier_stokes_solver = \
-                InstationarySolver(self._mesh, self._boundary_markers,
-                                   self._form_convective_term,
-                                   self._time_stepping,
-                                   self._tol, self._maxiter)
+                self._InstationarySolverClass(self._mesh, self._boundary_markers,
+                                              self._form_convective_term,
+                                              self._time_stepping,
+                                              self._tol, self._maxiter)
 
         # pass dimensionless numbers
         self._navier_stokes_solver.set_dimensionless_numbers(self._Re, self._Fr)

@@ -390,41 +390,71 @@ def _extract_facet_markers(geo_filename):
     return facet_markers
 
 
-def channel_with_cylinder():  # pragma: no cover
-    """Create a mesh of a channel with a cylinder.
+def _locate_file(basename):
+    """Locate a file in the current directory.
+    """
+    file_extension = path.splitext(basename)[1]
+    files = glob.glob("../*/*/*" + file_extension, recursive=True)
+    files += glob.glob("./*/*" + file_extension, recursive=True)
+    files += glob.glob("./*/*/*" + file_extension, recursive=True)
+    print(files)
+    file = None
+    for f in files:
+        if basename in f:
+            file = f
+            break
+    if file is not None:
+        assert path.exists(file)
+    return file
 
-    This script reads a gmsh file. This file must be located inside the project
+
+def _read_external_mesh(basename):
+    """This script reads a gmsh file. This file must be located inside the project
     directory. If this script is used inside the docker container, the
     associated xdmf files must already exist.
     """
     # locate geo file
-    fname = "DFGBenchmark.geo"
-    geo_files = glob.glob("../*/*/*.geo", recursive=True)
-    geo_files += glob.glob("./*/*/*.geo", recursive=True)
-    for file in geo_files:
-        if fname in file:
-            geo_file = file
-            break
-    assert path.exists(geo_file)
-
+    assert isinstance(basename, str)
+    assert basename.endswith(".geo")
+    geo_file = _locate_file(basename)
+    assert geo_file is not None
     facet_marker_map = _extract_facet_markers(geo_file)
     # define xdmf files
-    filename = geo_file[:geo_file.index(".geo")]
-    xdmf_facet_marker_file = filename + "_facet_markers.xdmf"
-    xdmf_file = geo_file.replace(".geo", ".xdmf")
+    xdmf_file = _locate_file(basename.replace(".geo", ".xdmf"))
+    xdmf_facet_marker_file = _locate_file(basename.replace(".geo", "_facet_markers.xdmf"))
     # check if xdmf files exist
-    if not path.exists(xdmf_file) or not path.exists(xdmf_facet_marker_file):
+    if xdmf_file is None or xdmf_facet_marker_file is None:
         from grid_tools import generate_xdmf_mesh
-        generate_xdmf_mesh(geo_file)
+        xdmf_file, xdmf_facet_marker_file = generate_xdmf_mesh(geo_file)
     # read xdmf files
+    assert path.exists(xdmf_file)
     mesh = dlfn.Mesh()
     with dlfn.XDMFFile(xdmf_file) as infile:
         infile.read(mesh)
     # read facet markers
     space_dim = mesh.geometry().dim()
     mvc = dlfn.MeshValueCollection("size_t", mesh, space_dim - 1)
+    assert path.exists(xdmf_facet_marker_file)
     with dlfn.XDMFFile(xdmf_facet_marker_file) as infile:
         infile.read(mvc, "facet_markers")
     facet_markers = dlfn.cpp.mesh.MeshFunctionSizet(mesh, mvc)
 
     return mesh, facet_markers, facet_marker_map
+
+
+def backward_facing_step():
+    """Create a mesh of a channel with a backward facing step.
+    """
+    return _read_external_mesh("BackwardFacingStep.geo")
+
+
+def blasius_plate():
+    """Create a mesh of a plate embedded in free space.
+    """
+    return _read_external_mesh("BlasiusFlowProblem.geo")
+
+
+def channel_with_cylinder():
+    """Create a mesh of a channel with a cylinder.
+    """
+    return _read_external_mesh("DFGBenchmark.geo")
