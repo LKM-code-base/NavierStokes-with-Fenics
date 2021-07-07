@@ -88,6 +88,7 @@ def generate_xdmf_mesh(geo_file):  # pragma: no cover
             raise RuntimeError("GMSH is not installed on your machine and "
                                "the msh file does not exist.")
     # read msh file
+    assert path.exists(msh_file)
     mesh = meshio.read(msh_file)
     # determine dimension
     if "triangle" in mesh.cells_dict and "tetra" not in mesh.cells_dict:
@@ -109,14 +110,13 @@ def generate_xdmf_mesh(geo_file):  # pragma: no cover
         prune_z = False
     # extract facet mesh (codimension one)
     facet_mesh = _create_meshio_mesh(mesh, facet_type, prune_z=prune_z)
-    xdmf_facet_marker_filename = msh_file.replace(".msh", "_facet_markers.xdmf")
-    meshio.write(xdmf_facet_marker_filename, facet_mesh, data_format="XML")
+    xdmf_facet_marker_file = msh_file.replace(".msh", "_facet_markers.xdmf")
+    meshio.write(xdmf_facet_marker_file, facet_mesh, data_format="XML")
     # extract facet mesh (codimension one)
     cell_mesh = _create_meshio_mesh(mesh, cell_type, prune_z=prune_z)
-    xdmf_filename = msh_file.replace(".msh", ".xdmf")
-    meshio.write(xdmf_filename, cell_mesh, data_format="XML")
-    # delete msh file
-    subprocess.run(["rm", "-rf", msh_file], check=True)
+    xdmf_file = msh_file.replace(".msh", ".xdmf")
+    meshio.write(xdmf_file, cell_mesh, data_format="XML")
+    return xdmf_file, xdmf_facet_marker_file
 
 
 if __name__ == "__main__":  # pragma: no cover

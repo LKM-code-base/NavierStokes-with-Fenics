@@ -397,6 +397,7 @@ def _locate_file(basename):
     files = glob.glob("../*/*/*" + file_extension, recursive=True)
     files += glob.glob("./*/*" + file_extension, recursive=True)
     files += glob.glob("./*/*/*" + file_extension, recursive=True)
+    print(files)
     file = None
     for f in files:
         if basename in f:
@@ -502,14 +503,16 @@ def blasius_plate():  # pragma: no cover
     # check if xdmf files exist
     if xdmf_file is None or xdmf_facet_marker_file is None:
         from grid_tools import generate_xdmf_mesh
-        generate_xdmf_mesh(geo_file)
+        xdmf_file, xdmf_facet_marker_file = generate_xdmf_mesh(geo_file)
     # read xdmf files
+    assert path.exists(xdmf_file)
     mesh = dlfn.Mesh()
     with dlfn.XDMFFile(xdmf_file) as infile:
         infile.read(mesh)
     # read facet markers
     space_dim = mesh.geometry().dim()
     mvc = dlfn.MeshValueCollection("size_t", mesh, space_dim - 1)
+    assert path.exists(xdmf_facet_marker_file)
     with dlfn.XDMFFile(xdmf_facet_marker_file) as infile:
         infile.read(mvc, "facet_markers")
     facet_markers = dlfn.cpp.mesh.MeshFunctionSizet(mesh, mvc)
