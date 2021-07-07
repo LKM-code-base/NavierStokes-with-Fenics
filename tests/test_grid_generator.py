@@ -6,6 +6,9 @@ from grid_generator import open_hyper_cube
 from grid_generator import hyper_rectangle
 from grid_generator import spherical_shell
 from grid_generator import _extract_facet_markers
+from grid_generator import backward_facing_step
+from grid_generator import blasius_plate
+from grid_generator import channel_with_cylinder
 import subprocess
 from os import path
 
@@ -63,6 +66,12 @@ def test_extract_boundary_markers():
     assert path.exists(geo_file)
     _ = _extract_facet_markers(geo_file)
     subprocess.run(["rm", geo_file], check=True)
+    
+
+def test_external_meshes():
+    _ = backward_facing_step()
+    _ = blasius_plate()
+    _ = channel_with_cylinder()
 
 
 if __name__ == "__main__":
