@@ -104,7 +104,7 @@ def spherical_shell(dim, radii, n_refinements=0):
 
     # mark boundaries
     BoundaryMarkers = SphericalAnnulusBoundaryMarkers
-    gamma_inner = CircularBoundary(mesh=mesh, radius=ro)
+    gamma_inner = CircularBoundary(mesh=mesh, radius=ri)
     gamma_inner.mark(facet_marker, BoundaryMarkers.interior_boundary.value)
     gamma_outer = CircularBoundary(mesh=mesh, radius=ro)
     gamma_outer.mark(facet_marker, BoundaryMarkers.exterior_boundary.value)
