@@ -22,7 +22,8 @@ jobs:
     - name: Generate msh files
       shell: bash
       run: |
-        gmsh -3 gmsh-collection/meshes/BlasiusFlowProblem.geo gmsh-collection/meshes/BlasiusFlowProblem.msh
+        pwd && ls -l
+        gmsh -3 gmsh-collection/meshes/BlasiusFlowProblem.geo
         # for file in gmsh-collection/meshes/*.geo; do
         #   name=$(echo "$file" | cut -f 1 -d '.')
         #   gmsh -3 "$name.geo" "$name.msh"
