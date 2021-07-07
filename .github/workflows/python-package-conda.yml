@@ -22,8 +22,8 @@ jobs:
     - name: Generate msh files
       shell: bash
       run: |
-        ll gmsh-collection/meshes/*.geo
-        ll gmsh-collection/meshes/*.geo >> file.txt
+        ls gmsh-collection/meshes/*.geo
+        ls gmsh-collection/meshes/*.geo >> file.txt
         cat file.txt
         for file in gmsh-collection/meshes/*.geo; do
           name=$(echo "$filename" | cut -f 1 -d '.')
