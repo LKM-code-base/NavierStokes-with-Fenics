@@ -22,11 +22,8 @@ jobs:
     - name: Generate msh files
       shell: bash
       run: |
-        ls gmsh-collection/meshes/*.geo
-        ls gmsh-collection/meshes/*.geo >> file.txt
-        cat file.txt
         for file in gmsh-collection/meshes/*.geo; do
-          name=$(echo "$filename" | cut -f 1 -d '.')
+          name=$(echo "$file" | cut -f 1 -d '.')
           gmsh -3 "$name.geo" "$name.msh"
         done
     - name: Add conda to system path
