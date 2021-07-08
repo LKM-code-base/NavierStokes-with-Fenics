@@ -397,7 +397,6 @@ def _locate_file(basename):
     files = glob.glob("../*/*/*" + file_extension, recursive=True)
     files += glob.glob("./*/*" + file_extension, recursive=True)
     files += glob.glob("./*/*/*" + file_extension, recursive=True)
-    print(files)
     file = None
     for f in files:
         if basename in f:
