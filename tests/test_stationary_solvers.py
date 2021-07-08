@@ -96,6 +96,7 @@ class GravityDrivenFlowProblem(StationaryProblem):
 
 
 class CouetteProblem(StationaryProblem):
+    """Couette flow problem with periodic boundary conditions in x-direction."""
     def __init__(self, n_points, main_dir=None):
         super().__init__(main_dir)
 
@@ -113,6 +114,27 @@ class CouetteProblem(StationaryProblem):
         self._bcs = ((VelocityBCType.no_slip, HyperCubeBoundaryMarkers.bottom.value, None),
                      (TractionBCType.constant_component, HyperCubeBoundaryMarkers.top.value, 0, 1.0),
                      (VelocityBCType.no_normal_flux, HyperCubeBoundaryMarkers.top.value, None))
+
+    def set_periodic_boundary_conditions(self):
+        """ Set periodic boundary condition in x-direction."""
+        class PeriodicDomain(dlfn.SubDomain):
+            def inside(self, x, on_boundary):
+                """Return True if `x` is located on the master edge and False
+                else.
+                """
+                return (dlfn.near(x[0], 0.0) and on_boundary)
+
+            def map(self, x_slave, x_master):
+                """Map the coordinates of the support points (nodes) of the degrees
+                of freedom of the slave to the coordinates of the corresponding
+                master edge.
+                """
+                x_master[0] = x_slave[0] - 1.0
+                x_master[1] = x_slave[1]
+
+        self._periodic_bcs = PeriodicDomain()
+        self._periodic_boundary_ids = (HyperCubeBoundaryMarkers.left.value,
+                                       HyperCubeBoundaryMarkers.right.value)
 
 
 class ChannelFlowProblem(StationaryProblem):
@@ -245,7 +267,7 @@ def test_channel_flow_convective_term():
 
 
 def test_couette_flow():
-    couette_flow = CouetteProblem(25)
+    couette_flow = CouetteProblem(10)
     couette_flow.solve_problem()
 
 

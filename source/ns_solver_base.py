@@ -411,12 +411,16 @@ class SolverBase:
             assert body_force.ufl_shape[0] == self._space_dim
         self._body_force = body_force
 
-    def set_periodic_boundary_conditions(self, constrained_domain):
+    def set_periodic_boundary_conditions(self, constrained_domain,
+                                         constrained_boundary_ids):
         """Set constraints due to the periodic boundary conditions of the
         problem.
         """
         assert isinstance(constrained_domain, dlfn.SubDomain)
+        assert isinstance(constrained_boundary_ids, (tuple, list))
+        assert all(isinstance(i, int) for i in constrained_boundary_ids)
         self._constrained_domain = constrained_domain
+        self._constrained_boundary_ids = constrained_boundary_ids
 
     def set_boundary_conditions(self, bcs, internal_constraints=None):
         """Set the boundary conditions of the problem.
@@ -448,6 +452,8 @@ class SolverBase:
         pressure_bcs = []
         pressure_bc_ids = set()
         for bc in bcs:
+            if hasattr(self, "_constrained_domain"):
+                assert bc[1] not in self._constrained_boundary_ids
             if isinstance(bc[0], VelocityBCType):
                 velocity_bcs.append(bc)
                 velocity_bc_ids.add(bc[1])

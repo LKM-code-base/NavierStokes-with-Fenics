@@ -456,7 +456,9 @@ class StationaryProblem(ProblemBase):
 
         # pass periodic boundary conditions
         if hasattr(self, "_periodic_bcs"):
-            self._navier_stokes_solver.set_periodic_boundary_conditions(self._periodic_bcs)
+            assert hasattr(self, "_periodic_boundary_ids")
+            self._navier_stokes_solver.set_periodic_boundary_conditions(self._periodic_bcs,
+                                                                        self._periodic_boundary_ids)
 
         # pass boundary conditions
         if hasattr(self, "_internal_constraints"):
