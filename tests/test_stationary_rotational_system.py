@@ -14,27 +14,6 @@ from grid_generator import SphericalAnnulusBoundaryMarkers
 dlfn.set_log_level(20)
 
 
-class RotationalCavityProblem(StationaryProblem):
-    def __init__(self, n_points, main_dir=None):
-        super().__init__(main_dir)
-
-        self._n_points = n_points
-        self._problem_name = "Rotational"
-
-        self.set_parameters(Re=1000.0, Ro=1.0, Omega=dlfn.Constant(1), Alpha=dlfn.Constant(0))
-
-    def setup_mesh(self):
-        # create mesh
-        self._mesh, self._boundary_markers = hyper_cube(2, self._n_points)
-
-    def set_boundary_conditions(self):
-        # velocity boundary conditions
-        self._bcs = ((VelocityBCType.no_slip, HyperCubeBoundaryMarkers.left.value, None),
-                     (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.right.value, None),
-                     (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.bottom.value, None),
-                     (VelocityBCType.constant, HyperCubeBoundaryMarkers.top.value, (1.0, 0.0)))
-        
-        
 class RotationalCouetteFlow(StationaryProblem):
     def __init__(self, n_refinements, radii, main_dir=None):
         super().__init__(main_dir)
@@ -56,10 +35,6 @@ class RotationalCouetteFlow(StationaryProblem):
         self._bcs = ((VelocityBCType.no_slip,SphericalAnnulusBoundaryMarkers.exterior_boundary.value, None),
                      (VelocityBCType.function, SphericalAnnulusBoundaryMarkers.interior_boundary.value, velocity))
         
- 
-def test_rotational_cavity():
-    rotational_cavity_flow = RotationalCavityProblem(100)
-    rotational_cavity_flow.solve_problem()
     
 def test_rotational_couette():
     rotational_couette_flow = RotationalCouetteFlow(0, (0.25, 1.0))
@@ -67,5 +42,4 @@ def test_rotational_couette():
 
 
 if __name__ == "__main__":
-    test_rotational_cavity()
     test_rotational_couette()
