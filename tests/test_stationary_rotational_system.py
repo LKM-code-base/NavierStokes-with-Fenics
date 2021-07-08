@@ -21,7 +21,7 @@ class RotationalCavityProblem(StationaryProblem):
         self._n_points = n_points
         self._problem_name = "Rotational"
 
-        self.set_parameters(Re=10.0, Ro=0.01, Omega=dlfn.Constant(50), Alpha=dlfn.Constant(0))
+        self.set_parameters(Re=1000.0, Ro=1.0, Omega=dlfn.Constant(1), Alpha=dlfn.Constant(0))
 
     def setup_mesh(self):
         # create mesh
@@ -39,12 +39,11 @@ class RotationalCouetteFlow(StationaryProblem):
     def __init__(self, n_refinements, radii, main_dir=None):
         super().__init__(main_dir)
 
-        assert isinstance(radii, (list, tuple)) and len(radii) == 2, "radii must be tuple of length 2"
         self._radii = radii
         self._n_refinements = n_refinements
         self._problem_name = "RotationalCouette"
 
-        self.set_parameters(Re=10.0, Ro=0.01, Omega=dlfn.Constant(50), Alpha=dlfn.Constant(0))
+        self.set_parameters(Re=1000.0, Ro=1.0, Omega=dlfn.Constant(1), Alpha=dlfn.Constant(0))
 
     def setup_mesh(self):
         # create mesh
@@ -52,16 +51,18 @@ class RotationalCouetteFlow(StationaryProblem):
 
     def set_boundary_conditions(self):
         # velocity boundary conditions
-        self._bcs = ((VelocityBCType.no_slip,SphericalAnnulusBoundaryMarkers.interior_boundary.value, None),
-                     (VelocityBCType.constant, SphericalAnnulusBoundaryMarkers.exterior_boundary.value, (1.0, 0.0)))
+        velocity_str = ("x[1]","-x[0]")
+        velocity = dlfn.Expression(velocity_str, degree=2)
+        self._bcs = ((VelocityBCType.no_slip,SphericalAnnulusBoundaryMarkers.exterior_boundary.value, None),
+                     (VelocityBCType.function, SphericalAnnulusBoundaryMarkers.interior_boundary.value, velocity))
         
  
 def test_rotational_cavity():
-    rotational_cavity_flow = RotationalCavityProblem(25)
+    rotational_cavity_flow = RotationalCavityProblem(100)
     rotational_cavity_flow.solve_problem()
     
 def test_rotational_couette():
-    rotational_couette_flow = RotationalCouetteFlow(3, (0.25, 1.0))
+    rotational_couette_flow = RotationalCouetteFlow(0, (0.25, 1.0))
     rotational_couette_flow.solve_problem()
 
 
