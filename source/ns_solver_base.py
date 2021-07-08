@@ -231,6 +231,15 @@ class SolverBase:
         assert isinstance(v, self._form_function_types)
 
         return self._one_half * inner(grad(u) + grad(u).T, grad(v) + grad(v).T)
+    
+    @staticmethod
+    def modify_time(expression, time):
+        # modify time
+        if isinstance(expression, dlfn.Expression):
+            if hasattr(expression, "time"):
+                expression.time = time
+            elif hasattr(expression, "t"):
+                expression.t = time
 
     def _picard_linerization_convective_term(self, u, v, w):
         assert isinstance(u, self._form_function_types)
@@ -752,14 +761,6 @@ class InstationarySolverBase(SolverBase):
         assert isinstance(current_time, float)
         assert next_time > current_time
 
-        # auxiliary function
-        def modify_time(expression, time=next_time):
-            # modify time
-            if isinstance(expression, dlfn.Expression):
-                if hasattr(expression, "time"):
-                    expression.time = next_time
-                elif hasattr(expression, "t"):
-                    expression.t = next_time
         # velocity boundary conditions
         if hasattr(self, "_velocity_bcs"):
             for bc in self._velocity_bcs:
@@ -771,7 +772,7 @@ class InstationarySolverBase(SolverBase):
                 else:  # pragma: no cover
                     raise RuntimeError()
                 # modify time
-                modify_time(value)
+                self.modify_time(value, next_time)
         # pressure boundary conditions
         if hasattr(self, "_pressure_bcs"):
             for bc in self._pressure_bcs:
@@ -781,7 +782,7 @@ class InstationarySolverBase(SolverBase):
                 else:  # pragma: no cover
                     raise RuntimeError()
                 # modify time
-                modify_time(value)
+                self.modify_time(value, next_time)
         # traction boundary conditions
         if hasattr(self, "_traction_bcs"):
             for bc in self._traction_bcs:
@@ -793,11 +794,11 @@ class InstationarySolverBase(SolverBase):
                 else:  # pragma: no cover
                     raise RuntimeError()
                 # modify time
-                modify_time(value)
+                self.modify_time(value, next_time)
         # body force
         if hasattr(self, "_body_force"):
             # modify time
-            modify_time(self._body_force)
+            self.modify_time(self._body_force, next_time)
         # traction boundary conditions at current time
         if hasattr(self, "_current_traction_bcs"):
             for bc in self._current_traction_bcs:
@@ -809,10 +810,10 @@ class InstationarySolverBase(SolverBase):
                 else:  # pragma: no cover
                     raise RuntimeError()
                 # modify time
-                modify_time(value, current_time)
+                self.modify_time(value, current_time)
         # body force at current time
         if hasattr(self, "_current_body_force"):
-            modify_time(self._current_body_force, current_time)
+            self.modify_time(self._current_body_force, current_time)
 
     def _solve_time_step(self):  # pragma: no cover
         """

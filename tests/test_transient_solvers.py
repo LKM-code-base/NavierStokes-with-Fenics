@@ -102,6 +102,7 @@ class GravityDrivenFlowProblem(InstationaryProblem):
 class TaylorGreenVortex(InstationaryProblem):
     _gamma = gamma = 2.0 * dlfn.pi
     _Re = 100.0
+
     def __init__(self, main_dir=None):
         super().__init__(main_dir, start_time=0.0, end_time=1.0,
                          desired_start_time_step=0.001, n_max_steps=10)
@@ -155,7 +156,7 @@ class TaylorGreenVortex(InstationaryProblem):
                     x_master[1] = x_slave[1]
                 # points at the top edge
                 elif dlfn.near(x_slave[1], 1.0):
-                    x_master[0] = x_slave[0] 
+                    x_master[0] = x_slave[0]
                     x_master[1] = x_slave[1] - 1.0
                 else:
                     # map other outside of the domain
@@ -180,6 +181,7 @@ def test_transient_gravity_driven_flow():
 def test_taylor_green_vortex():
     taylor_green = TaylorGreenVortex()
     taylor_green.solve_problem()
+
 
 if __name__ == "__main__":
     test_channel_flow()

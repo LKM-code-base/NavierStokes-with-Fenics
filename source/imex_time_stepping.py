@@ -157,4 +157,3 @@ class IMEXTimeStepping(DiscreteTime):
         """Returns the number of substeps required to proceed from the current
         time level to the next time level."""
         return 1
-

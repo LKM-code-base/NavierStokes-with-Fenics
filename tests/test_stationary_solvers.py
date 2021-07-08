@@ -283,4 +283,3 @@ if __name__ == "__main__":
     test_channel_flow_convective_term()
     test_couette_flow()
     test_gravity_driven_flow()
-

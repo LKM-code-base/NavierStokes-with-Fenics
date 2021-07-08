@@ -740,6 +740,7 @@ class InstationaryProblem(ProblemBase):
         assert hasattr(self, "_initial_conditions")
 
         # create time stepping object
+        # TODO: type of time stepping is controlled by the solver...
         self._time_stepping = BDFTimeStepping(self._start_time, self._end_time,
                                               desired_start_time_step=self._desired_start_time_step)
 
