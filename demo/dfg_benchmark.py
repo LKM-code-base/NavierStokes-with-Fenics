@@ -5,7 +5,7 @@ from grid_generator import channel_with_cylinder
 from ns_bdf_solver import ImplicitBDFSolver
 from ns_problem import InstationaryProblem
 from ns_solver_base import VelocityBCType
-import csv
+import numpy as np
 
 dlfn.set_log_level(40)
 
@@ -44,23 +44,22 @@ class DFGBenchmark2D2(InstationaryProblem):
 
     def postprocess_solution(self):
         #get pressure, velocity and kinematic visosity
-        vel_mean = 1
-        L = 1
-        p = self._get_pressure()
-        vel = self._get_velocity()
-        nu = vel_mean * L / self._Re
+        pressure = self._get_pressure()
+        velocity = self._get_velocity()
         #get cylinder boundary
         ds_Cyl = dlfn.ds(domain=self._mesh, subdomain_data=self._boundary_markers, subdomain_id=104)
         #get normals
         n = dlfn.FacetNormal(self._mesh)
-        #stress term
-        force = - p * n + nu * dlfn.dot(dlfn.grad(vel), n)
+        #symmetric gradient
+        sym_grad = lambda v : 0.5 * (dlfn.grad(v) + dlfn.grad(v).T)
+        #traction vector
+        traction = - pressure * n + 1 / self._Re * dlfn.dot(sym_grad(velocity), n)
         #integrate to get forces
-        F_D = dlfn.assemble(-force[0] * ds_Cyl)
-        F_L = dlfn.assemble(-force[1] * ds_Cyl)
+        F_D = dlfn.assemble(-traction[0] * ds_Cyl)
+        F_L = dlfn.assemble(-traction[1] * ds_Cyl)
         #calc coefficients
-        C_D = 2 / (vel_mean ** 2 * L) * F_D
-        C_L = 2 / (vel_mean ** 2 * L) * F_L
+        C_D = 2 * F_D
+        C_L = 2 * F_L
         print(C_D, C_L)
         coefficients = [C_D, C_L]
         Coefficients.append(coefficients)        
@@ -70,9 +69,7 @@ if __name__ == "__main__":
     dfg_benchmark = DFGBenchmark2D2()
     Coefficients = []
     dfg_benchmark.solve_problem()
-    
-    f = open('results/Coefficients.csv', 'w')
-    writer = csv.writer(f)
-    for row in Coefficients:
-        writer.writerow(row)
-    f.close()    
+
+    Coefficients = np.asarray(Coefficients)
+    np.savetxt("results/Coefficients.txt", Coefficients)
+     
