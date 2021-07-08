@@ -268,7 +268,7 @@ class ProblemBase:
         Purely virtual method for specifying the boundary conditions of the
         problem.
         """
-        raise NotImplementedError("You are calling a purely virtual method.")
+        pass
 
     def set_internal_constraints(self):  # pragma: no cover
         """
@@ -429,15 +429,15 @@ class StationaryProblem(ProblemBase):
         assert self._mesh is not None
         self._space_dim = self._mesh.geometry().dim()
         self._n_cells = self._mesh.num_cells()
-
-        # setup boundary conditions
-        self.set_boundary_conditions()
-
+        
+        # setup periodic boundary conditions
+        self.set_periodic_boundary_conditions()
+        
         # setup internal constraints
         self.set_internal_constraints()
 
-        # setup periodic boundary conditions
-        self.set_periodic_boundary_conditions()
+        # setup boundary conditions
+        self.set_boundary_conditions()
 
         # setup has body force
         self.set_body_force()
@@ -445,6 +445,12 @@ class StationaryProblem(ProblemBase):
         # setup parameters
         if not hasattr(self, "_Re"):  # pragma: no cover
             self.set_parameters()
+            
+        # check setup of boundary and initial conditions and constraints
+        if not hasattr(self, "_bcs"):
+            assert hasattr(self, "_periodic_bcs")
+        if hasattr(self, "_internal_constraints"):
+            assert hasattr(self, "_bcs")
 
         # create solver object
         if not hasattr(self, "_navier_stokes_solver"):
@@ -706,19 +712,32 @@ class InstationaryProblem(ProblemBase):
         assert self._mesh is not None
         self._space_dim = self._mesh.geometry().dim()
         self._n_cells = self._mesh.num_cells()
+        
+        # setup periodic boundary conditions
+        self.set_periodic_boundary_conditions()
+        
+        # setup internal constraints
+        self.set_internal_constraints()
 
         # setup boundary conditions
         self.set_boundary_conditions()
 
         # setup has body force
         self.set_body_force()
-
+        
         # setup parameters
         if not hasattr(self, "_Re"):  # pragma: no cover
             self.set_parameters()
 
         # set initial condition
         self.set_initial_conditions()
+        
+        # check setup of boundary and initial conditions and constraints
+        if not hasattr(self, "_bcs"):
+            assert hasattr(self, "_periodic_bcs")
+        if hasattr(self, "_internal_constraints"):
+            assert hasattr(self, "_bcs")
+        assert hasattr(self, "_initial_conditions")
 
         # create time stepping object
         self._time_stepping = BDFTimeStepping(self._start_time, self._end_time,
@@ -739,12 +758,21 @@ class InstationaryProblem(ProblemBase):
         if hasattr(self, "_body_force"):
             self._navier_stokes_solver.set_body_force(self._body_force)
 
-        # pass boundary conditions
-        assert hasattr(self, "_bcs")
-        self._navier_stokes_solver.set_boundary_conditions(self._bcs)
+        # pass periodic boundary conditions
+        if hasattr(self, "_periodic_bcs"):
+            assert hasattr(self, "_periodic_boundary_ids")
+            self._navier_stokes_solver.set_periodic_boundary_conditions(self._periodic_bcs,
+                                                                        self._periodic_boundary_ids)
 
         # pass boundary conditions
-        assert hasattr(self, "_initial_conditions")
+        if hasattr(self, "_bcs"):
+            if hasattr(self, "_internal_constraints"):
+                self._navier_stokes_solver.set_boundary_conditions(self._bcs,
+                                                                   self._internal_constraints)
+            else:
+                self._navier_stokes_solver.set_boundary_conditions(self._bcs)
+
+        # pass boundary conditions
         self._navier_stokes_solver.set_initial_conditions(self._initial_conditions)
         self._write_xdmf_file(current_time=0.0)
 

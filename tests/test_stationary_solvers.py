@@ -116,7 +116,7 @@ class CouetteProblem(StationaryProblem):
                      (VelocityBCType.no_normal_flux, HyperCubeBoundaryMarkers.top.value, None))
 
     def set_periodic_boundary_conditions(self):
-        """ Set periodic boundary condition in x-direction."""
+        """Set periodic boundary condition in x-direction."""
         class PeriodicDomain(dlfn.SubDomain):
             def inside(self, x, on_boundary):
                 """Return True if `x` is located on the master edge and False
