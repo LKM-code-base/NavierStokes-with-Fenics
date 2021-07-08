@@ -298,7 +298,7 @@ class SolverBase:
                     bc_object = dlfn.DirichletBC(velocity_space, self._null_vector,
                                                  self._boundary_markers, bndry_id)
                     self._dirichlet_bcs.append(bc_object)
-    
+
                 elif bc_type is VelocityBCType.no_normal_flux:
                     # compute normal vector of boundary
                     bndry_normal = boundary_normal(self._mesh, self._boundary_markers, bndry_id)
@@ -313,7 +313,7 @@ class SolverBase:
                                                  self._null_scalar, self._boundary_markers,
                                                  bndry_id)
                     self._dirichlet_bcs.append(bc_object)
-    
+
                 elif bc_type is VelocityBCType.no_tangential_flux:
                     # compute normal vector of boundary
                     bndry_normal = boundary_normal(self._mesh, self._boundary_markers, bndry_id)
@@ -331,14 +331,14 @@ class SolverBase:
                                                      self._null_scalar, self._boundary_markers,
                                                      bndry_id)
                         self._dirichlet_bcs.append(bc_object)
-    
+
                 elif bc_type is VelocityBCType.constant:
                     assert isinstance(value, (tuple, list))
                     const_function = dlfn.Constant(value)
                     bc_object = dlfn.DirichletBC(velocity_space, const_function,
                                                  self._boundary_markers, bndry_id)
                     self._dirichlet_bcs.append(bc_object)
-    
+
                 elif bc_type is VelocityBCType.constant_component:
                     assert isinstance(value, float)
                     const_function = dlfn.Constant(value)
@@ -346,20 +346,20 @@ class SolverBase:
                                                  const_function,
                                                  self._boundary_markers, bndry_id)
                     self._dirichlet_bcs.append(bc_object)
-    
+
                 elif bc_type is VelocityBCType.function:
                     assert isinstance(value, dlfn.Expression)
                     bc_object = dlfn.DirichletBC(velocity_space, value,
                                                  self._boundary_markers, bndry_id)
                     self._dirichlet_bcs.append(bc_object)
-    
+
                 elif bc_type is VelocityBCType.function_component:
                     assert isinstance(value, dlfn.Expression)
                     bc_object = dlfn.DirichletBC(velocity_space.sub(component_index),
                                                  value,
                                                  self._boundary_markers, bndry_id)
                     self._dirichlet_bcs.append(bc_object)
-    
+
                 else:  # pragma: no cover
                     raise RuntimeError()
 
@@ -388,7 +388,7 @@ class SolverBase:
 
                 else:  # pragma: no cover
                     raise RuntimeError()
-            
+
             if len(self._dirichlet_bcs) == 0:
                 assert hasattr(self, "_constrained_domain")
 
@@ -751,7 +751,7 @@ class InstationarySolverBase(SolverBase):
         assert isinstance(next_time, float)
         assert isinstance(current_time, float)
         assert next_time > current_time
-        
+
         # auxiliary function
         def modify_time(expression, time=next_time):
             # modify time

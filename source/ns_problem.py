@@ -429,10 +429,10 @@ class StationaryProblem(ProblemBase):
         assert self._mesh is not None
         self._space_dim = self._mesh.geometry().dim()
         self._n_cells = self._mesh.num_cells()
-        
+
         # setup periodic boundary conditions
         self.set_periodic_boundary_conditions()
-        
+
         # setup internal constraints
         self.set_internal_constraints()
 
@@ -445,7 +445,7 @@ class StationaryProblem(ProblemBase):
         # setup parameters
         if not hasattr(self, "_Re"):  # pragma: no cover
             self.set_parameters()
-            
+
         # check setup of boundary and initial conditions and constraints
         if not hasattr(self, "_bcs"):
             assert hasattr(self, "_periodic_bcs")
@@ -712,10 +712,10 @@ class InstationaryProblem(ProblemBase):
         assert self._mesh is not None
         self._space_dim = self._mesh.geometry().dim()
         self._n_cells = self._mesh.num_cells()
-        
+
         # setup periodic boundary conditions
         self.set_periodic_boundary_conditions()
-        
+
         # setup internal constraints
         self.set_internal_constraints()
 
@@ -724,14 +724,14 @@ class InstationaryProblem(ProblemBase):
 
         # setup has body force
         self.set_body_force()
-        
+
         # setup parameters
         if not hasattr(self, "_Re"):  # pragma: no cover
             self.set_parameters()
 
         # set initial condition
         self.set_initial_conditions()
-        
+
         # check setup of boundary and initial conditions and constraints
         if not hasattr(self, "_bcs"):
             assert hasattr(self, "_periodic_bcs")

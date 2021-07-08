@@ -11,6 +11,7 @@ dlfn.set_log_level(40)
 Re = 100.0
 gamma = 2.0 * dlfn.pi
 
+
 class TaylorGreenVortex(InstationaryProblem):
     def __init__(self, main_dir=None):
         super().__init__(main_dir, start_time=0.0, end_time=1.0,
@@ -65,7 +66,7 @@ class TaylorGreenVortex(InstationaryProblem):
                     x_master[1] = x_slave[1]
                 # points at the top edge
                 elif dlfn.near(x_slave[1], 1.0):
-                    x_master[0] = x_slave[0] 
+                    x_master[0] = x_slave[0]
                     x_master[1] = x_slave[1] - 1.0
                 else:
                     # map other outside of the domain
