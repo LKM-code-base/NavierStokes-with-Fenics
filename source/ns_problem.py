@@ -272,8 +272,15 @@ class ProblemBase:
 
     def set_internal_constraints(self):  # pragma: no cover
         """
-        Virtual method for specifying constraint on internal degrees of freedom
+        Virtual method for specifying constraints on internal degrees of freedom
         of the problem.
+        """
+        pass
+
+    def set_periodic_boundary_conditions(self):  # pragma: no cover
+        """
+        Virtual method for specifying periodic boundary conditions of the
+        problem.
         """
         pass
 
@@ -426,8 +433,11 @@ class StationaryProblem(ProblemBase):
         # setup boundary conditions
         self.set_boundary_conditions()
 
-        # setup boundary conditions
+        # setup internal constraints
         self.set_internal_constraints()
+
+        # setup periodic boundary conditions
+        self.set_periodic_boundary_conditions()
 
         # setup has body force
         self.set_body_force()
@@ -443,6 +453,10 @@ class StationaryProblem(ProblemBase):
                                  self._form_convective_term,
                                  self._tol, self._maxiter,
                                  self._tol_picard, self._maxiter_picard)
+
+        # pass periodic boundary conditions
+        if hasattr(self, "_periodic_bcs"):
+            self._navier_stokes_solver.set_periodic_boundary_conditions(self._periodic_bcs)
 
         # pass boundary conditions
         if hasattr(self, "_internal_constraints"):

@@ -265,7 +265,11 @@ class SolverBase:
         mixedElement = dlfn.MixedElement([elemV, elemP])
 
         # mixed function space
-        self._Wh = dlfn.FunctionSpace(self._mesh, mixedElement)
+        if hasattr(self, "_constrained_domain"):
+            self._Wh = dlfn.FunctionSpace(self._mesh, mixedElement,
+                                          constrained_domain=self._constrained_domain)
+        else:
+            self._Wh = dlfn.FunctionSpace(self._mesh, mixedElement)
         self._n_dofs = self._Wh.dim()
 
         assert hasattr(self, "_n_cells")
@@ -406,6 +410,13 @@ class SolverBase:
             assert len(body_force.ufl_shape) == 1
             assert body_force.ufl_shape[0] == self._space_dim
         self._body_force = body_force
+
+    def set_periodic_boundary_conditions(self, constrained_domain):
+        """Set constraints due to the periodic boundary conditions of the
+        problem.
+        """
+        assert isinstance(constrained_domain, dlfn.SubDomain)
+        self._constrained_domain = constrained_domain
 
     def set_boundary_conditions(self, bcs, internal_constraints=None):
         """Set the boundary conditions of the problem.
