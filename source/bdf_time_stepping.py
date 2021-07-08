@@ -95,7 +95,7 @@ class BDFTimeStepping(DiscreteTime):
                     self._coefficients_changed[key] = False
                 return
             elif (self._omega[0] == omega and self._omega[1] != Omega and
-                      self._step_number > 1):
+                  self._step_number > 1):
                 self._omega[1] = Omega
 
                 # coefficients of the first derivative

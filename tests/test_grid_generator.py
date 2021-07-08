@@ -55,7 +55,8 @@ def test_spherical_shell():
 
 
 def test_extract_boundary_markers():
-    url_str = "https://github.com/LKM-code-base/Gmsh-collection/blob/66b29ba984ed6792f56666ee8eebc458c7a626d4/meshes/CubeThreeMaterials.geo"
+    url_str = "https://github.com/LKM-code-base/Gmsh-collection/blob/" + \
+              "66b29ba984ed6792f56666ee8eebc458c7a626d4/meshes/CubeThreeMaterials.geo"
     subprocess.run(["wget", url_str], check=True)
     fname = "CubeThreeMaterials.geo"
     geo_files = glob.glob("*.geo", recursive=True)
@@ -66,7 +67,7 @@ def test_extract_boundary_markers():
     assert path.exists(geo_file)
     _ = _extract_facet_markers(geo_file)
     subprocess.run(["rm", geo_file], check=True)
-    
+
 
 def test_external_meshes():
     _ = backward_facing_step()
