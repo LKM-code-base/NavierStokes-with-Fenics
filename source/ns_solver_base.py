@@ -244,13 +244,13 @@ class SolverBase:
             assert len(self._Omega) == 3
             return dot(dlfn.Constant(2) * dlfn.cross(self._Omega, u), v)
     
-    def _euler_term(self, v):
+    def _euler_term(self,x, v):
         assert isinstance(v, self._form_function_types)
         
         assert isinstance(self._Alpha, dlfn.Constant)
         if self._mesh.geometry().dim() == 2:
             assert len(self._Alpha.ufl_shape) == 0
-            return dot(dlfn.as_vector((-self._Alpha * dlfn.SpatialCoordinate(self._mesh)[1], self._Alpha * dlfn.SpatialCoordinate(self._mesh)[0])), v)  
+            return dot(dlfn.as_vector((-self._Alpha * x[1], self._Alpha * x[0])), v)  
         else:
             assert len(self._Alpha) == 3
             return dot(dlfn.cross(self._Alpha, dlfn.SpatialCoordinate(self._mesh)), v)
@@ -672,7 +672,8 @@ class StationarySolverBase(SolverBase):
         # add euler force term
         if hasattr(self, "_Alpha") and self._Alpha is not None:
             assert hasattr(self, "_Ro"), "Rossby number is not specified."
-            F_momentum += self._euler_term(w) / self._Ro * dV
+            x = dlfn.SpatialCoordinate(self._mesh)
+            F_momentum += self._euler_term(x, w) / self._Ro * dV
 
         self._F = F_mass + F_momentum
 
