@@ -37,6 +37,10 @@ class IPCSSolver(InstationarySolverBase):
         self._intermediate_velocity = dlfn.Function(self._Vh["velocity"])
         self._pressure = dlfn.Function(self._Vh["pressure"])
         self._phi = dlfn.Function(self._Vh["pressure"])
+        
+        #Insert solutions here with velocity pressure, old velocity old pressure
+        #Dont use phi in solutions
+        #ML:docker
 
     def _setup_problem(self):
         """Method setting up solvers object of the instationary problem.
