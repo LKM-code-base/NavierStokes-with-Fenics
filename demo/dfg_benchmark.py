@@ -12,8 +12,8 @@ dlfn.set_log_level(40)
 
 class DFGBenchmark2D2(InstationaryProblem):
     def __init__(self, main_dir=None):
-        super().__init__(main_dir, start_time=0.0, end_time=60.0,
-                         desired_start_time_step=0.005, n_max_steps=12000)
+        super().__init__(main_dir, start_time=0.0, end_time=80.0,
+                         desired_start_time_step=0.005, n_max_steps=16000)
 
         self._problem_name = "DFGBenchmark2D2"
 

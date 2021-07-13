@@ -270,7 +270,6 @@ class SolverBase:
 
         assert hasattr(self, "_n_cells")
         dlfn.info("Number of cells {0}, number of DoFs: {1}".format(self._n_cells, self._n_dofs))
-        print("Number of cells {0}, number of DoFs: {1}".format(self._n_cells, self._n_dofs))
 
     def _setup_boundary_conditions(self):
         assert hasattr(self, "_Wh")
