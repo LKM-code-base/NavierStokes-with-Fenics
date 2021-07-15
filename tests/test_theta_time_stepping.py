@@ -67,11 +67,10 @@ def test_forward_euler():
     intermediate_times = []
     for i in range(len(step_sizes)):
         if i > 0:
-            intermediate_times.append(
-                    [[intermediate_times[i-1][1][0]],
-                     [intermediate_times[i-1][1][0] + step_sizes[i]]])
+            intermediate_times.append([[intermediate_times[i-1][0][1],
+                                       intermediate_times[i-1][0][1] + step_sizes[i]]])
         else:
-            intermediate_times.append([[0.0], [step_sizes[i]]])
+            intermediate_times.append([[0.0, step_sizes[i]]])
 
     time_loop(time_stepping, theta, intermediate_times, intermediate_timesteps)
 
@@ -85,12 +84,10 @@ def test_backward_euler():
     intermediate_times = []
     for i in range(len(step_sizes)):
         if i > 0:
-            intermediate_times.append(
-                    [[intermediate_times[i-1][1][0]],
-                     [intermediate_times[i-1][1][0] + step_sizes[i]]])
+            intermediate_times.append([[intermediate_times[i-1][0][1],
+                                       intermediate_times[i-1][0][1] + step_sizes[i]]])
         else:
-            intermediate_times.append([[0.0], [step_sizes[i]]])
-
+            intermediate_times.append([[0.0, step_sizes[i]]])
     time_loop(time_stepping, theta, intermediate_times, intermediate_timesteps)
 
 
@@ -101,14 +98,13 @@ def test_crank_nicolson():
     for i in range(len(step_sizes)):
         intermediate_timesteps.append([step_sizes[i]])
     intermediate_times = []
+    intermediate_times = []
     for i in range(len(step_sizes)):
         if i > 0:
-            intermediate_times.append(
-                    [[intermediate_times[i-1][1][0]],
-                     [intermediate_times[i-1][1][0] + step_sizes[i]]])
+            intermediate_times.append([[intermediate_times[i-1][0][1],
+                                       intermediate_times[i-1][0][1] + step_sizes[i]]])
         else:
-            intermediate_times.append([[0.0], [step_sizes[i]]])
-
+            intermediate_times.append([[0.0, step_sizes[i]]])
     time_loop(time_stepping, theta, intermediate_times, intermediate_timesteps)
 
 
@@ -125,14 +121,15 @@ def test_fractional_step01():
     for i in range(len(step_sizes)):
         k = step_sizes[i]
         if i > 0:
-            previous_time = intermediate_times[i-1][1][2]
-            next_time = intermediate_times[i-1][1][2] + k
+            previous_time = intermediate_times[i-1][2][1]
+            next_time = intermediate_times[i-1][2][1] + k
         else:
             previous_time = 0.0
             next_time = k
         intermediate_times.append(
-                [[previous_time, previous_time + _theta * k, next_time - _theta * k],
-                 [previous_time + _theta * k, next_time - _theta * k, next_time]])
+                    [[previous_time, previous_time + _theta * k],
+                     [previous_time + _theta * k, next_time - _theta * k],
+                     [next_time - _theta * k, next_time]])
 
     time_loop(time_stepping, theta, intermediate_times, intermediate_timesteps)
 
@@ -151,14 +148,15 @@ def test_fractional_step02():
     for i in range(len(step_sizes)):
         k = step_sizes[i]
         if i > 0:
-            previous_time = intermediate_times[i-1][1][2]
-            next_time = intermediate_times[i-1][1][2] + k
+            previous_time = intermediate_times[i-1][2][1]
+            next_time = intermediate_times[i-1][2][1] + k
         else:
             previous_time = 0.0
             next_time = k
         intermediate_times.append(
-                [[previous_time, previous_time + _theta * k, next_time - _theta * k],
-                 [previous_time + _theta * k, next_time - _theta * k, next_time]])
+                    [[previous_time, previous_time + _theta * k],
+                     [previous_time + _theta * k, next_time - _theta * k],
+                     [next_time - _theta * k, next_time]])
 
     time_loop(time_stepping, theta, intermediate_times, intermediate_timesteps)
 

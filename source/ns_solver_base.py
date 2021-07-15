@@ -231,7 +231,7 @@ class SolverBase:
         assert isinstance(v, self._form_function_types)
 
         return self._one_half * inner(grad(u) + grad(u).T, grad(v) + grad(v).T)
-    
+
     @staticmethod
     def modify_time(expression, time):
         # modify time
@@ -903,7 +903,7 @@ class InstationarySolverBase(SolverBase):
         self._set_time()
 
         # update coefficients if necessary
-        if self._time_stepping.coefficients_changed:
+        if self._time_stepping.coefficients_changed():
             self._update_time_stepping_coefficients()
 
         # perform one time
@@ -912,3 +912,7 @@ class InstationarySolverBase(SolverBase):
     @property
     def solution(self):
         return self._solutions[0]
+
+    @staticmethod
+    def time_stepping_class():
+        raise NotImplementedError("You are calling a purely virtual method.")

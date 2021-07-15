@@ -57,6 +57,7 @@ class ImplicitThetaSolver(InstationarySolverBase):
                     raise RuntimeError()
 
         if hasattr(self, "_traction_bcs"):
+            # traction boundary conditions at the next time
             for bc in self._traction_bcs:
                 # unpack values
                 if len(bc) == 3:
@@ -69,21 +70,23 @@ class ImplicitThetaSolver(InstationarySolverBase):
                 if bc_type is TractionBCType.constant:
                     assert isinstance(traction, (tuple, list))
                     const_function = dlfn.Constant(traction)
-                    F += self._theta[2] * dot(const_function, w) * dA(bndry_id)
+                    F += self._theta[3] * dot(const_function, w) * dA(bndry_id)
 
                 elif bc_type is TractionBCType.constant_component:
                     assert isinstance(traction, float)
                     const_function = dlfn.Constant(traction)
-                    F += self._theta[2] * const_function * w[component_index] * dA(bndry_id)
+                    F += self._theta[3] * const_function * w[component_index] * dA(bndry_id)
 
                 elif bc_type is TractionBCType.function:
                     assert isinstance(traction, dlfn.Expression)
-                    F += self._theta[2] * dot(traction, w) * dA(bndry_id)
+                    F += self._theta[3] * dot(traction, w) * dA(bndry_id)
 
                 elif bc_type is TractionBCType.function_component:
                     assert isinstance(traction, dlfn.Expression)
-                    F += self._theta[2] * traction * w[component_index] * dA(bndry_id)
+                    F += self._theta[3] * traction * w[component_index] * dA(bndry_id)
 
+            # traction boundary conditions at the current time
+            assert hasattr(self, "_current_traction_bcs")
             for bc in self._current_traction_bcs:
                 # unpack values
                 if len(bc) == 3:
@@ -125,8 +128,11 @@ class ImplicitThetaSolver(InstationarySolverBase):
             self._setup_function_spaces()
 
         if not all(hasattr(self, attr) for attr in ("_next_step_size",
-                                                    "_alpha")):
+                                                    "_theta")):
             self._update_time_stepping_coefficients()
+            self._update_theta(0)
+            self._update_intermediate_times(0)
+            self._update_intermediate_timesteps(0)
 
         self._setup_boundary_conditions()
 
@@ -199,8 +205,12 @@ class ImplicitThetaSolver(InstationarySolverBase):
         Method solving one time step of the non-linear saddle point problem.
         """
         # solve problem
-        dlfn.info("Starting Newton iteration...")
-        self._solver.solve()
+        for k in range(self._time_stepping.n_steps):
+            dlfn.info("On step {0}".format(k))
+            dlfn.info("   Starting Newton iteration...")
+            self._update_intermediate_times(k)
+            self._update_intermediate_timesteps(k)
+            self._solver.solve()
 
     def _update_theta(self, step):
         theta = self._time_stepping.theta[step]
@@ -216,19 +226,25 @@ class ImplicitThetaSolver(InstationarySolverBase):
         intermediate_times = self._time_stepping.intermediate_times[step]
         current_time = intermediate_times[0]
         next_time = intermediate_times[1]
+        self._set_time(next_time, current_time)
 
     def _update_intermediate_timesteps(self, step):
-        intermediate_timestep = self._time_stepping.intermediate_timesteps[step]
+        """Update the variable ``_intermediate_step_size``."""
+        intermediate_step_size = self._time_stepping.intermediate_timesteps[step]
         if not hasattr(self, "_intermediate_step_size"):
-            self._intermediate_step_size = dlfn.Constant(intermediate_timestep)
+            self._intermediate_step_size = dlfn.Constant(intermediate_step_size)
         else:
-            self._intermediate_step_size.assign(intermediate_timestep)
+            self._intermediate_step_size.assign(intermediate_step_size)
 
     def _update_time_stepping_coefficients(self):
-        """Update time stepping coefficients ``_alpha`` and ``_next_step_size``."""
+        """Update the variable ``_next_step_size``."""
         # update time steps
         next_step_size = self._time_stepping.get_next_step_size()
         if not hasattr(self, "_next_step_size"):
             self._next_step_size = dlfn.Constant(next_step_size)
         else:
             self._next_step_size.assign(next_step_size)
+
+    @staticmethod
+    def time_stepping_class():
+        return GeneralThetaTimeStepping

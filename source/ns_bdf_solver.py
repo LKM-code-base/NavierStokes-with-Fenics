@@ -130,3 +130,7 @@ class ImplicitBDFSolver(InstationarySolverBase):
         else:
             for i in range(3):
                 self._alpha[i].assign(alpha[i])
+
+    @staticmethod
+    def time_stepping_class():
+        return BDFTimeStepping

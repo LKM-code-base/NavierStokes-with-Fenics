@@ -4,6 +4,7 @@ import dolfin as dlfn
 from ns_problem import InstationaryProblem
 from ns_problem import VelocityBCType
 from ns_bdf_solver import ImplicitBDFSolver
+from ns_implicit_theta_solver import ImplicitThetaSolver
 from grid_generator import hyper_cube
 from grid_generator import hyper_rectangle
 from grid_generator import open_hyper_cube
@@ -11,7 +12,7 @@ from grid_generator import HyperRectangleBoundaryMarkers
 from grid_generator import HyperCubeBoundaryMarkers
 
 
-dlfn.set_log_level(30)
+dlfn.set_log_level(20)
 
 
 class ChannelFlowProblem(InstationaryProblem):
@@ -27,7 +28,7 @@ class ChannelFlowProblem(InstationaryProblem):
         self._output_frequency = 10
         self._postprocessing_frequency = 10
 
-        self.set_solver_class(ImplicitBDFSolver)
+        self.set_solver_class(ImplicitThetaSolver)
 
     def setup_mesh(self):
         # create mesh
@@ -185,5 +186,5 @@ def test_taylor_green_vortex():
 
 if __name__ == "__main__":
     test_channel_flow()
-    test_transient_gravity_driven_flow()
-    test_taylor_green_vortex()
+#    test_transient_gravity_driven_flow()
+#    test_taylor_green_vortex()

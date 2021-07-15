@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 from auxiliary_methods import extract_all_boundary_markers
 import dolfin as dlfn
-from bdf_time_stepping import BDFTimeStepping
 import math
 from ns_solver_base import VelocityBCType
 from ns_solver_base import PressureBCType
@@ -741,8 +740,9 @@ class InstationaryProblem(ProblemBase):
 
         # create time stepping object
         # TODO: type of time stepping is controlled by the solver...
-        self._time_stepping = BDFTimeStepping(self._start_time, self._end_time,
-                                              desired_start_time_step=self._desired_start_time_step)
+        TimeStepping = self._InstationarySolverClass.time_stepping_class()
+        self._time_stepping = TimeStepping(self._start_time, self._end_time,
+                                           desired_start_time_step=self._desired_start_time_step)
 
         # create solver object
         if not hasattr(self, "_navier_stokes_solver"):
