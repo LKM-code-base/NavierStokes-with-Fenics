@@ -43,26 +43,28 @@ class DFGBenchmark2D2(InstationaryProblem):
                      (VelocityBCType.no_slip, self._boundary_marker_map["lower wall"], None))
 
     def postprocess_solution(self):
-        #get pressure, velocity and kinematic visosity
+        # get pressure, velocity
         pressure = self._get_pressure()
         velocity = self._get_velocity()
-        #get cylinder boundary
-        ds_Cyl = dlfn.ds(domain=self._mesh, subdomain_data=self._boundary_markers, subdomain_id=104)
-        #get normals
+        # get cylinder boundary
+        cylinder_id = self._boundary_marker_map["cylinder"]
+        dA_cyl = dlfn.ds(domain=self._mesh,
+                         subdomain_data=self._boundary_markers,
+                         subdomain_id=cylinder_id)
+        # get normal vector
         n = dlfn.FacetNormal(self._mesh)
-        #symmetric gradient
-        sym_grad = lambda v : 0.5 * (dlfn.grad(v) + dlfn.grad(v).T)
-        #traction vector
-        traction = - pressure * n + 1 / self._Re * dlfn.dot(sym_grad(velocity), n)
-        #integrate to get forces
-        F_D = dlfn.assemble(-traction[0] * ds_Cyl)
-        F_L = dlfn.assemble(-traction[1] * ds_Cyl)
-        #calc coefficients
-        C_D = 2 * F_D
-        C_L = 2 * F_L
-        print(C_D, C_L)
-        coefficients = [C_D, C_L]
-        Coefficients.append(coefficients)        
+        # symmetric gradient
+        d = dlfn.Constant(0.5) * (dlfn.grad(velocity) + dlfn.grad(velocity).T)
+        # traction vector
+        traction = - pressure * n + 1 / self._Re * dlfn.dot(d, n)
+        # integrate to get forces
+        drag_force = dlfn.assemble(-traction[0] * dA_cyl)
+        lift_force = dlfn.assemble(-traction[1] * dA_cyl)
+        # calculate coefficients
+        drag_coeff = 2.0 * drag_force
+        lift_coeff = 2.0 * lift_force
+        print(drag_coeff, lift_coeff)
+        Coefficients.append([drag_coeff, lift_coeff])
 
 
 if __name__ == "__main__":
@@ -72,4 +74,3 @@ if __name__ == "__main__":
 
     Coefficients = np.asarray(Coefficients)
     np.savetxt("results/Coefficients.txt", Coefficients)
-     
