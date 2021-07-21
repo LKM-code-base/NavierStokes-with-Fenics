@@ -247,6 +247,7 @@ class ProblemBase:
         for index, name in solver.sub_space_association.items():
             solution_components[index].rename(name, "")
             self._xdmf_file.write(solution_components[index], current_time)
+
         if hasattr(self, "_additional_field_output"):
             for field in self._additional_field_output:
                 self._xdmf_file.write(field, current_time)
@@ -788,7 +789,7 @@ class InstationaryProblem(ProblemBase):
         assert hasattr(self, "_postprocessing_frequency")
         assert hasattr(self, "_output_frequency")
         while not self._time_stepping.is_at_end() and \
-                self._time_stepping.step_number <= self._n_max_steps:
+                self._time_stepping.step_number < self._n_max_steps:
             # set next step size
             self._set_next_step_size()
             # update coefficients
@@ -808,3 +809,4 @@ class InstationaryProblem(ProblemBase):
             if self._output_frequency > 0:
                 if self._time_stepping.step_number % self._output_frequency == 0:
                     self._write_xdmf_file(current_time=self._time_stepping.current_time)
+        print(self._time_stepping)

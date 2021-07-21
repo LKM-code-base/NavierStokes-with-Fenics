@@ -864,10 +864,10 @@ class InstationarySolverBase(SolverBase):
         subspace_index = self._field_association["velocity"]
         velocity_space = dlfn.FunctionSpace(self._Wh.mesh(),
                                             self._Wh.sub(subspace_index).ufl_element())
-        projected_velocity_condition = dlfn.project(velocity_expression,
-                                                    velocity_space)
-        dlfn.assign(old_velocity, projected_velocity_condition)
-        dlfn.assign(velocity, projected_velocity_condition)
+        interp_velocity_condition = dlfn.interpolate(velocity_expression,
+                                                     velocity_space)
+        dlfn.assign(old_velocity, interp_velocity_condition)
+        dlfn.assign(velocity, interp_velocity_condition)
 
         # pressure part
         if "pressure" in initial_conditions:
@@ -884,11 +884,10 @@ class InstationarySolverBase(SolverBase):
             subspace_index = self._field_association["pressure"]
             pressure_space = dlfn.FunctionSpace(self._Wh.mesh(),
                                                 self._Wh.sub(subspace_index).ufl_element())
-            projected_pressure_condition = dlfn.project(pressure_expression,
-                                                        pressure_space)
-
-            dlfn.assign(old_pressure, projected_pressure_condition)
-            dlfn.assign(pressure, projected_pressure_condition)
+            interp_pressure_condition = dlfn.interpolate(pressure_expression,
+                                                         pressure_space)
+            dlfn.assign(old_pressure, interp_pressure_condition)
+            dlfn.assign(pressure, interp_pressure_condition)
         # TODO: Implement Poisson equation for the initial pressure
 
     def solve(self):
