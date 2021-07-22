@@ -137,6 +137,69 @@ class SolverBase:
                     F += traction * w[component_index] * dA(bndry_id)
         return F
 
+    def _assign_function(self, receiving_functions, assigning_functions):
+        assert isinstance(receiving_functions, (dlfn.Function, dict))
+        assert isinstance(assigning_functions, (dlfn.Function, dict))
+
+        # forward assignment
+        if isinstance(receiving_functions, dict):
+            assert isinstance(assigning_functions, dlfn.Function)
+            assert len(receiving_functions) > 0
+            # create function assigner
+            if not hasattr(self, "_forward_function_assigner"):
+                receiving_spaces = [None, None]
+                for field in ("velocity", "pressure"):
+                    receiving_spaces[self._field_association[field]] = self._get_subspace(field)
+                assigning_space = self._Wh
+                self._forward_function_assigner = dlfn.FunctionAssigner(receiving_spaces,
+                                                                        assigning_space)
+            # complete dictionary of functions
+            for field in ("velocity", "pressure"):
+                if field not in receiving_functions:
+                    subspace = self._get_subspace(field)
+                    receiving_functions[field] = dlfn.Function(subspace)
+            # create list from dictionary
+            receiving_function_list = [None, ] * 2
+            for field in ("velocity", "pressure"):
+                subspace_index = self._field_association[field]
+                receiving_function_list[subspace_index] = receiving_functions[field]
+            # assign functions
+            self._forward_function_assigner.assign(receiving_function_list,
+                                                   assigning_functions)
+
+        # backward assignment
+        elif isinstance(receiving_functions, dlfn.Function):
+            assert isinstance(assigning_functions, dict)
+            assert len(assigning_functions) > 0
+            # create function assigner
+            if not hasattr(self, "_backward_function_assigner"):
+                assigning_spaces = [None, None]
+                for field in ("velocity", "pressure"):
+                    assigning_spaces[self._field_association[field]] = self._get_subspace(field)
+                receiving_space = self._Wh
+                self._backward_function_assigner = dlfn.FunctionAssigner(receiving_space,
+                                                                         assigning_spaces)
+            # complete dictionary of functions
+            velocity_space = self._get_subspace("velocity")
+            pressure_space = self._get_subspace("pressure")
+            for field in ("velocity", "pressure"):
+                if field not in assigning_functions:
+                    # create auxiliary dictionary
+                    aux_functions = dict()
+                    aux_functions["velocity"] = dlfn.Function(velocity_space)
+                    aux_functions["pressure"] = dlfn.Function(pressure_space)
+                    # assign functions in auxilary dictionary
+                    self._assign_function(aux_functions, receiving_functions)
+                    # transfer function
+                    assigning_functions[field] = aux_functions[field]
+            # create list from dictionary
+            assigning_function_list = [None, ] * 2
+            for field in ("velocity", "pressure"):
+                subspace_index = self._field_association[field]
+                assigning_function_list[subspace_index] = assigning_functions[field]
+
+            self._backward_function_assigner.assign(receiving_functions, assigning_function_list)
+
     def _check_boundary_condition_format(self, bc, internal_constraint=False):
         """
         Check the general format of an arbitrary boundary condition.
@@ -156,18 +219,20 @@ class SolverBase:
         else:
             rank = 1
         # 2. check boundary id
-        assert isinstance(bc[1], int)
-        if internal_constraint:
-            facet_id_found = False
-            for f in dlfn.facets(self._mesh):
-                if self._boundary_markers[f] == bc[1]:
-                    facet_id_found = True
-                    break
-            assert facet_id_found
-
+        if bc[0] is PressureBCType.mean_value:
+            pass
         else:
-            assert bc[1] in all_bndry_ids, "Boundary id {0} ".format(bc[1]) +\
-                                           "was not found in the boundary markers."
+            assert isinstance(bc[1], int)
+            if internal_constraint:
+                facet_id_found = False
+                for f in dlfn.facets(self._mesh):
+                    if self._boundary_markers[f] == bc[1]:
+                        facet_id_found = True
+                        break
+                assert facet_id_found
+            else:
+                assert bc[1] in all_bndry_ids, "Boundary id {0} ".format(bc[1]) +\
+                                               "was not found in the boundary markers."
         # 3. check value type
         # distinguish between scalar and vector field
         if rank == 0:
@@ -226,11 +291,23 @@ class SolverBase:
 
         return inner(div(u), v)
 
-    def _viscous_term(self, u, v):
-        assert isinstance(u, self._form_function_types)
-        assert isinstance(v, self._form_function_types)
+    def _get_subspace(self, field):
+        assert isinstance(field, str)
+        assert field in self._field_association
+        if not hasattr(self, "_WhSub"):
+            self._WhSub = dict()
 
-        return self._one_half * inner(grad(u) + grad(u).T, grad(v) + grad(v).T)
+        if field not in self._WhSub:
+            subspace_index = self._field_association[field]
+            if hasattr(self, "_constrained_domain"):
+                self._WhSub[field] = dlfn.FunctionSpace(self._mesh,
+                                                        self._Wh.sub(subspace_index).ufl_element(),
+                                                        constrained_domain=self._constrained_domain)
+            else:
+                self._WhSub[field] = dlfn.FunctionSpace(self._mesh,
+                                                        self._Wh.sub(subspace_index).ufl_element(),
+                                                        constrained_domain=self._constrained_domain)
+        return self._WhSub[field]
 
     def _picard_linerization_convective_term(self, u, v, w):
         assert isinstance(u, self._form_function_types)
@@ -386,11 +463,20 @@ class SolverBase:
                                                  self._boundary_markers, bndry_id)
                     self._dirichlet_bcs.append(bc_object)
 
+                elif bc_type is PressureBCType.mean_value:
+                    assert bndry_id is None
+                    assert isinstance(value, float)
+                    self._mean_pressure_value = value
                 else:  # pragma: no cover
                     raise RuntimeError()
 
             if len(self._dirichlet_bcs) == 0:
                 assert hasattr(self, "_constrained_domain")
+
+    def _viscous_term(self, u, v):
+        assert isinstance(u, self._form_function_types)
+        assert isinstance(v, self._form_function_types)
+        return self._one_half * inner(grad(u) + grad(u).T, grad(v) + grad(v).T)
 
     @property
     def field_association(self):
@@ -467,7 +553,8 @@ class SolverBase:
                 pressure_bcs.append(bc)
                 pressure_bc_ids.add(bc[1])
         # check that at least one velocity bc is specified
-        assert len(velocity_bcs) > 0
+        if not hasattr(self, "_constrained_domain"):
+            assert len(velocity_bcs) > 0
 
         # check that there is no conflict between velocity and traction bcs
         if len(traction_bcs) > 0:
@@ -840,9 +927,6 @@ class InstationarySolverBase(SolverBase):
         if not all(hasattr(self, attr) for attr in ("_Wh",
                                                     "_solutions")):
             self._setup_function_spaces()
-        # split functions
-        velocity, pressure = self._solutions[0].split()
-        old_velocity, old_pressure = self._solutions[1].split()
 
         # velocity part
         # extract velocity initial condition
@@ -860,14 +944,10 @@ class InstationarySolverBase(SolverBase):
             assert all(isinstance(x, float) for x in velocity_condition)
             velocity_expression = dlfn.Constant(velocity_condition)
 
-        # project and assign
-        subspace_index = self._field_association["velocity"]
-        velocity_space = dlfn.FunctionSpace(self._Wh.mesh(),
-                                            self._Wh.sub(subspace_index).ufl_element())
-        interp_velocity_condition = dlfn.interpolate(velocity_expression,
-                                                     velocity_space)
-        dlfn.assign(old_velocity, interp_velocity_condition)
-        dlfn.assign(velocity, interp_velocity_condition)
+        # project velocity
+        velocity_space = self._get_subspace("velocity")
+        projected_velocity_condition = dlfn.project(velocity_expression,
+                                                    velocity_space)
 
         # pressure part
         if "pressure" in initial_conditions:
@@ -881,14 +961,18 @@ class InstationarySolverBase(SolverBase):
             else:
                 pressure_expression = dlfn.Constant(pressure_condition)
             # project and assign
-            subspace_index = self._field_association["pressure"]
-            pressure_space = dlfn.FunctionSpace(self._Wh.mesh(),
-                                                self._Wh.sub(subspace_index).ufl_element())
-            interp_pressure_condition = dlfn.interpolate(pressure_expression,
-                                                         pressure_space)
-            dlfn.assign(old_pressure, interp_pressure_condition)
-            dlfn.assign(pressure, interp_pressure_condition)
-        # TODO: Implement Poisson equation for the initial pressure
+            pressure_space = self._get_subspace("pressure")
+            projected_pressure_condition = dlfn.project(pressure_expression,
+                                                        pressure_space)
+        else:
+            raise RuntimeError()
+            # TODO: Implement Poisson equation for the initial pressure
+
+        # assign functions
+        self._assign_function(self._solutions[1],
+                              {"velocity": projected_velocity_condition,
+                               "pressure": projected_pressure_condition})
+        self._solutions[0].assign(self._solutions[1])
 
     def solve(self):
         """Solves the problem for one time step."""
@@ -906,6 +990,22 @@ class InstationarySolverBase(SolverBase):
 
         # perform one time
         self._solve_time_step()
+
+
+        if hasattr(self, "_mean_pressure_value"):
+            _, pressure = self.solution.split()
+            # compute mean value
+            dV = dlfn.Measure("dx", domain=self._mesh)
+            mean_pressure_value = dlfn.assemble(pressure * dV) / dlfn.assemble(dlfn.Constant(1.0) * dV)
+            # compute pressure shift
+            pressure_shift = dlfn.Constant(mean_pressure_value - self._mean_pressure_value)
+            # define modified pressure
+            modified_pressure = pressure - pressure_shift
+            # project modified pressure
+            pressure_space = self._get_subspace("pressure")
+            corrected_pressure = dlfn.project(modified_pressure, pressure_space)
+            self._assign_function(self.solution,
+                                  {"pressure": corrected_pressure})
 
     @property
     def solution(self):

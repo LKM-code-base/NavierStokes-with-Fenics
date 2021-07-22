@@ -5,6 +5,7 @@ from grid_generator import hyper_cube
 from grid_generator import HyperCubeBoundaryMarkers
 from math import ceil
 from ns_bdf_solver import ImplicitBDFSolver
+from ns_solver_base import PressureBCType
 from ns_problem import InstationaryProblem
 
 dlfn.parameters["form_compiler"]["representation"] = "uflacs"
@@ -12,7 +13,7 @@ dlfn.parameters["form_compiler"]["cpp_optimize"] = True
 dlfn.parameters["form_compiler"]["optimize"] = True
 dlfn.set_log_level(30)
 
-Re = 100.0
+Re = 1.0
 gamma = 2.0 * dlfn.pi
 
 
@@ -21,18 +22,18 @@ class TaylorGreenVortex(InstationaryProblem):
         end_time = 1.0
         n_max_steps = ceil(end_time / time_step)
         super().__init__(main_dir, start_time=0.0, end_time=end_time,
-                         desired_start_time_step=time_step, n_max_steps=1)
+                         desired_start_time_step=time_step, n_max_steps=n_max_steps)
         self._problem_name = "TaylorGreenVortex"
         self.set_parameters(Re=Re)
         self._n_points = None
-        self._output_frequency = 1
-        self._postprocessing_frequency = 1
+        self._output_frequency = 0
+        self._postprocessing_frequency = 0
         self.set_solver_class(ImplicitBDFSolver)
-    
+
     @property
     def n_points(self):
         return self._n_points
-    
+
     @n_points.setter
     def n_points(self, n):
         assert isinstance(n, int)
@@ -44,6 +45,8 @@ class TaylorGreenVortex(InstationaryProblem):
         # create mesh
         self._mesh, self._boundary_markers = hyper_cube(2, self._n_points)
 
+        print(self._mesh.hmin(), self._mesh.hmax())
+
     def set_initial_conditions(self):
         self._initial_conditions = dict()
         self._initial_conditions["velocity"] = \
@@ -53,6 +56,10 @@ class TaylorGreenVortex(InstationaryProblem):
         self._initial_conditions["pressure"] = \
             dlfn.Expression("-1.0/4.0 * (cos(2.0 * gamma * x[0]) + cos(2.0 * gamma * x[1]))",
                             gamma=gamma, degree=3)
+
+    def set_boundary_conditions(self):
+        # pressure mean value constraint
+        self._bcs = ((PressureBCType.mean_value , None, 0.0), )
 
     def set_periodic_boundary_conditions(self):
         """Set periodic boundary conditions in x- and y-direction."""
@@ -88,13 +95,15 @@ class TaylorGreenVortex(InstationaryProblem):
 
         self._periodic_bcs = PeriodicDomain()
         self._periodic_boundary_ids = (HyperCubeBoundaryMarkers.left.value,
-                                       HyperCubeBoundaryMarkers.right.value)
+                                       HyperCubeBoundaryMarkers.right.value,
+                                       HyperCubeBoundaryMarkers.top.value,
+                                       HyperCubeBoundaryMarkers.bottom.value)
 
-    def postprocess_solution(self):
+    def compute_error(self):
         # current time
-#        assert self._time_stepping.is_at_end()
-#        assert self._time_stepping.current_time == self._time_stepping.end_time
-        current_time = self._time_stepping.current_time 
+        assert self._time_stepping.is_at_end()
+        assert self._time_stepping.current_time == self._time_stepping.end_time
+        current_time = self._time_stepping.current_time
         # get velocity and pressure
         velocity = self._get_velocity()
         pressure = self._get_pressure()
@@ -103,23 +112,22 @@ class TaylorGreenVortex(InstationaryProblem):
         exact_solution["velocity"] = \
             dlfn.Expression(("exp(-2.0 * gamma * gamma / Re * t) * cos(gamma * x[0]) * sin(gamma * x[1])",
                              "-exp(-2.0 * gamma * gamma / Re * t) * sin(gamma * x[0]) * cos(gamma * x[1])"),
-                            gamma=gamma, Re=Re, t=current_time, degree=10)
+                            gamma=gamma, Re=Re, t=current_time, degree=5)
         exact_solution["pressure"] = \
         dlfn.Expression("-1.0/4.0 * exp(-4.0 * gamma * gamma / Re * t) * (cos(2.0 * gamma * x[0]) + cos(2.0 * gamma * x[1]))",
-                        gamma=gamma, Re=Re, t=current_time, degree=10)
-        
+                        gamma=gamma, Re=Re, t=current_time, degree=5)
         errors["velocity"].append(dlfn.errornorm(exact_solution["velocity"], velocity))
         errors["pressure"].append(dlfn.errornorm(exact_solution["pressure"], pressure))
 
-
 if __name__ == "__main__":
     errors = {"pressure": [], "velocity": []}
-    initial_time_step = 1e-1
+    initial_time_step = 1e-2
     time_step_reduction_factor = 0.5
     n_levels = 3
     for i in range(n_levels):
         time_step = initial_time_step * time_step_reduction_factor**i
         taylor_green = TaylorGreenVortex(time_step )
-        taylor_green.n_points = 64
+        taylor_green.n_points = 32
         taylor_green.solve_problem()
+        taylor_green.compute_error()
         print(errors)
