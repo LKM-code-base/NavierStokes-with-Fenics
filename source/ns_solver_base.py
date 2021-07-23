@@ -103,12 +103,14 @@ class SolverBase:
     def _add_boundary_tractions(self, F, w):
         """Method adding boundary traction terms to the weak form"""
         # input check
+#        print("SolverBase._add_boundary_tractions")
         assert isinstance(F, ufl.form.Form)
         assert isinstance(w, self._form_trial_function_types)
 
         dA = dlfn.Measure("ds", domain=self._mesh, subdomain_data=self._boundary_markers)
 
         if hasattr(self, "_traction_bcs"):
+            print("Foo...")
             for bc in self._traction_bcs:
                 # unpack values
                 if len(bc) == 3:
@@ -138,6 +140,7 @@ class SolverBase:
         return F
 
     def _assign_function(self, receiving_functions, assigning_functions):
+#        print("SolverBase._assign_function")
         assert isinstance(receiving_functions, (dlfn.Function, dict))
         assert isinstance(assigning_functions, (dlfn.Function, dict))
 
@@ -204,6 +207,7 @@ class SolverBase:
         """
         Check the general format of an arbitrary boundary condition.
         """
+#        print("SolverBase._check_boundary_condition_format")
         assert hasattr(self, "_mesh")
         assert hasattr(self, "_boundary_markers")
         # boundary ids specified in the MeshFunction
@@ -269,6 +273,7 @@ class SolverBase:
                     assert bc[3].value_rank() == 0
 
     def _convective_term(self, u, v):
+#        print("SolverBase._convective_term")
         assert isinstance(u, self._form_function_types)
         assert isinstance(v, self._form_function_types)
 
@@ -286,12 +291,14 @@ class SolverBase:
             return self._one_half * (dot(dot(grad(u), u), v) - dot(dot(grad(v), u), u))
 
     def _divergence_term(self, u, v):
+#        print("SolverBase._divergence_term")
         assert isinstance(u, self._form_function_types), "{0}".format(type(u))
         assert isinstance(v, self._form_function_types), "{0}".format(type(v))
 
         return inner(div(u), v)
 
     def _get_subspace(self, field):
+#        print("SolverBase._get_subspace")
         assert isinstance(field, str)
         assert field in self._field_association
         if not hasattr(self, "_WhSub"):
@@ -310,6 +317,7 @@ class SolverBase:
         return self._WhSub[field]
 
     def _picard_linerization_convective_term(self, u, v, w):
+#        print("SolverBase._picard_linerization_convective_term")
         assert isinstance(u, self._form_function_types)
         assert isinstance(v, self._form_trial_function_types)
         assert isinstance(w, self._form_trial_function_types)
@@ -331,6 +339,7 @@ class SolverBase:
         """
         Class method setting up function spaces.
         """
+#        print("SolverBase._setup_function_spaces")
         assert hasattr(self, "_mesh")
         cell = self._mesh.ufl_cell()
 
@@ -350,9 +359,10 @@ class SolverBase:
         self._n_dofs = self._Wh.dim()
 
         assert hasattr(self, "_n_cells")
-        dlfn.info("Number of cells {0}, number of DoFs: {1}".format(self._n_cells, self._n_dofs))
+        print("Number of cells {0}, number of DoFs: {1}".format(self._n_cells, self._n_dofs))
 
     def _setup_boundary_conditions(self):
+#        print("SolverBase._setup_boundary_conditions")
         assert hasattr(self, "_Wh")
         assert hasattr(self, "_boundary_markers")
 
@@ -474,12 +484,14 @@ class SolverBase:
                 assert hasattr(self, "_constrained_domain")
 
     def _viscous_term(self, u, v):
+#        print("SolverBase._viscous_term")
         assert isinstance(u, self._form_function_types)
         assert isinstance(v, self._form_function_types)
         return self._one_half * inner(grad(u) + grad(u).T, grad(v) + grad(v).T)
 
     @property
     def field_association(self):
+#        print("SolverBase.field_association")
         assert hasattr(self, "_field_association")
         return self._field_association
 
@@ -492,6 +504,7 @@ class SolverBase:
         body_force : dolfin.Expression, dolfin. Constant
             The body force.
         """
+#        print("SolverBase.set_body_force")
         assert isinstance(body_force, (dlfn.Expression, dlfn.Constant))
         if isinstance(body_force, dlfn.Expression):
             assert body_force.value_rank() == 1
@@ -505,6 +518,7 @@ class SolverBase:
         """Set constraints due to the periodic boundary conditions of the
         problem.
         """
+#        print("SolverBase.set_periodic_boundary_conditions")
         assert isinstance(constrained_domain, dlfn.SubDomain)
         assert isinstance(constrained_boundary_ids, (tuple, list))
         assert all(isinstance(i, int) for i in constrained_boundary_ids)
@@ -526,6 +540,7 @@ class SolverBase:
         component index and the third entry specifies the value.
         An optional argument allows to also specify internal constraints.
         """
+#        print("SolverBase.set_boundary_conditions")
         assert isinstance(bcs, (list, tuple))
         if internal_constraints is not None:
             assert isinstance(internal_constraints, (list, tuple))
@@ -629,6 +644,7 @@ class SolverBase:
         Fr : float
             Froude number.
         """
+#        print("SolverBase.set_dimensionless_numbers")
         assert isinstance(Re, float) and Re > 0.0
         if not hasattr(self, "_Re"):
             self._Re = dlfn.Constant(Re)
@@ -644,11 +660,12 @@ class SolverBase:
 
     @property
     def sub_space_association(self):
-        assert hasattr(self, "_sub_space_association")
+#        assert hasattr(self, "_sub_space_association")
         return self._sub_space_association
 
     @property
     def solution(self):
+#        print("SolverBase.solution")
         return self._solution
 
     def solve(self):  # pragma: no cover
@@ -812,12 +829,15 @@ class InstationarySolverBase(SolverBase):
 
     def _advance_solution(self):
         """Advance solution objects in time."""
+#        print("InstationarySolverBase._advance_solution")
         assert hasattr(self, "_solutions")
         for i in range(len(self._solutions) - 1):
+#            print(i)
             self._solutions[i+1].assign(self._solutions[i])
 
     def _setup_function_spaces(self):
         """Class method setting up function spaces."""
+#        print("InstationarySolverBase._setup_function_spaces")
         super()._setup_function_spaces()
         # create solution
         self._solutions = [dlfn.Function(self._Wh) for _ in range(self._time_stepping.n_levels() + 1)]
@@ -830,6 +850,7 @@ class InstationarySolverBase(SolverBase):
 
     def _set_time(self, next_time=None, current_time=None):
         """Set time of boundary condition objects and body force."""
+#        print("InstationarySolverBase._set_time")
         # input check
         if next_time is None:
             next_time = self._time_stepping.next_time
@@ -916,10 +937,12 @@ class InstationarySolverBase(SolverBase):
 
     def advance_time(self):
         """Advance relevant objects by one time step."""
+#        print("InstationarySolverBase.advance_time")
         self._advance_solution()
 
     def set_initial_conditions(self, initial_conditions):
         """Setup the initial conditions of the problem."""
+#        print("InstationarySolverBase.set_initial_conditions")
         # input check
         assert isinstance(initial_conditions, dict)
         assert "velocity" in initial_conditions
@@ -976,6 +999,7 @@ class InstationarySolverBase(SolverBase):
 
     def solve(self):
         """Solves the problem for one time step."""
+#        print("InstationarySolverBase.solve")
         # setup problem
         if not all(hasattr(self, attr) for attr in ("_solver",
                                                     "_solutions")):
@@ -1009,4 +1033,5 @@ class InstationarySolverBase(SolverBase):
 
     @property
     def solution(self):
+#        print("InstationarySolverBase.solution")
         return self._solutions[0]
