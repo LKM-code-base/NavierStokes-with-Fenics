@@ -2,10 +2,12 @@
 # -*- coding: utf-8 -*-
 from bdf_time_stepping import BDFTimeStepping
 import dolfin as dlfn
-from ns_solver_base import SolverBase, InstationarySolverBase
+from ns_solver_base import SolverBase, InstationarySolverBase, VelocityBCType, PressureBCType
 
 
 class IPCSSolver(InstationarySolverBase):
+    
+    _required_objects = ("_Wh", "_Vh","_joint_solution","_velocities","_pressure", "_old_pressure")
 
     def __init__(self, mesh, boundary_markers, form_convective_term, time_stepping, tol=1e-10, max_iter=50):
 
@@ -14,6 +16,139 @@ class IPCSSolver(InstationarySolverBase):
 
         super().__init__(mesh, boundary_markers, form_convective_term,
                          time_stepping, tol, max_iter)
+    
+    def _acceleration_term(self, velocity_solutions, w):
+        # input check
+        assert isinstance(velocity_solutions, (list, tuple))
+        #assert all(isinstance(x, self._form_function_types) for x in velocity_solutions)
+        #assert isinstance(w, self._form_function_types)
+        # step size
+        k = self._next_step_size
+        # time stepping coefficients
+        alpha = self._alpha
+        assert len(alpha) == len(velocity_solutions)
+        # compute accelerations
+        accelerations = []
+        for i in range(len(alpha)):
+            accelerations.append(alpha[i] * dlfn.dot(velocity_solutions[i], w))
+        return sum(accelerations)
+    
+    def _setup_boundary_conditions(self):
+        assert hasattr(self, "_Wh")
+        assert hasattr(self, "_boundary_markers")
+        assert hasattr(self, "_velocity_bcs")
+        # empty dirichlet bcs
+        
+        self._dirichlet_bcs = dict()
+        self._dirichlet_bcs['velocity'] = []
+        self._dirichlet_bcs['pressure'] = []
+
+        # velocity part
+        velocity_space = self._Vh['velocity']
+        for bc in self._velocity_bcs:
+            # unpack values
+            if len(bc) == 3:
+                bc_type, bndry_id, value = bc
+            elif len(bc) == 4:
+                bc_type, bndry_id, component_index, value = bc
+            else:  # pragma: no cover
+                raise RuntimeError()
+            # create dolfin.DirichletBC object
+            if bc_type is VelocityBCType.no_slip:
+                bc_object = dlfn.DirichletBC(velocity_space, self._null_vector,
+                                             self._boundary_markers, bndry_id)
+                self._dirichlet_bcs['velocity'].append(bc_object)
+
+            elif bc_type is VelocityBCType.no_normal_flux:
+                # compute normal vector of boundary
+                bndry_normal = boundary_normal(self._mesh, self._boundary_markers, bndry_id)
+                # find associated component
+                bndry_normal = np.array(bndry_normal)
+                normal_component_index = int(np.abs(bndry_normal).argmax())
+                # check that direction is either e_x, e_y or e_z
+                assert abs(abs(bndry_normal[normal_component_index]) - 1.0) < 5.0e-15
+                assert all([abs(bndry_normal[d]) < 5.0e-15 for d in range(self._space_dim) if d != normal_component_index])
+                # construct boundary condition on subspace
+                bc_object = dlfn.DirichletBC(velocity_space.sub(normal_component_index),
+                                             self._null_scalar, self._boundary_markers,
+                                             bndry_id)
+                self._dirichlet_bcs['velocity'].append(bc_object)
+
+            elif bc_type is VelocityBCType.no_tangential_flux:
+                # compute normal vector of boundary
+                bndry_normal = boundary_normal(self._mesh, self._boundary_markers, bndry_id)
+                # find associated component
+                bndry_normal = np.array(bndry_normal)
+                normal_component_index = int(np.abs(bndry_normal).argmax())
+                # check that direction is either e_x, e_y or e_z
+                assert abs(bndry_normal[normal_component_index] - 1.0) < 5.0e-15
+                assert all([abs(bndry_normal[d]) < 5.0e-15 for d in range(self._space_dim) if d != normal_component_index])
+                # compute tangential components
+                tangential_component_indices = (d for d in range(self._space_dim) if d != normal_component_index)
+                # construct boundary condition on subspace
+                for component_index in tangential_component_indices:
+                    bc_object = dlfn.DirichletBC(velocity_space.sub(component_index),
+                                                 self._null_scalar, self._boundary_markers,
+                                                 bndry_id)
+                    self._dirichlet_bcs['velocity'].append(bc_object)
+
+            elif bc_type is VelocityBCType.constant:
+                assert isinstance(value, (tuple, list))
+                const_function = dlfn.Constant(value)
+                bc_object = dlfn.DirichletBC(velocity_space, const_function,
+                                             self._boundary_markers, bndry_id)
+                self._dirichlet_bcs['velocity'].append(bc_object)
+
+            elif bc_type is VelocityBCType.constant_component:
+                assert isinstance(value, float)
+                const_function = dlfn.Constant(value)
+                bc_object = dlfn.DirichletBC(velocity_space.sub(component_index),
+                                             const_function,
+                                             self._boundary_markers, bndry_id)
+                self._dirichlet_bcs['velocity'].append(bc_object)
+
+            elif bc_type is VelocityBCType.function:
+                assert isinstance(value, dlfn.Expression)
+                bc_object = dlfn.DirichletBC(velocity_space, value,
+                                             self._boundary_markers, bndry_id)
+                self._dirichlet_bcs['velocity'].append(bc_object)
+
+            elif bc_type is VelocityBCType.function_component:
+                assert isinstance(value, dlfn.Expression)
+                bc_object = dlfn.DirichletBC(velocity_space.sub(component_index),
+                                             value,
+                                             self._boundary_markers, bndry_id)
+                self._dirichlet_bcs['velocity'].append(bc_object)
+
+            else:  # pragma: no cover
+                raise RuntimeError()
+
+        # pressure part
+        pressure_space = self._Vh["pressure"]
+        if hasattr(self, "_pressure_bcs"):
+            for bc in self._pressure_bcs:
+                # unpack values
+                if len(bc) == 3:
+                    bc_type, bndry_id, value = bc
+                else:  # pragma: no cover
+                    raise RuntimeError()
+                # create dolfin.DirichletBC object
+                if bc_type is PressureBCType.constant:
+                    assert isinstance(value, float)
+                    const_function = dlfn.Constant(value)
+                    bc_object = dlfn.DirichletBC(pressure_space, const_function,
+                                                 self._boundary_markers, bndry_id)
+                    self._dirichlet_bcs['pressure'].append(bc_object)
+
+                elif bc_type is PressureBCType.function:
+                    assert isinstance(value, dlfn.Expression)
+                    bc_object = dlfn.DirichletBC(pressure_space, value,
+                                                 self._boundary_markers, bndry_id)
+                    self._dirichlet_bcs['pressure'].append(bc_object)
+
+                else:  # pragma: no cover
+                    raise RuntimeError()
+        # HINT: traction boundary conditions are covered in _setup_problem
 
     def _setup_function_spaces(self):
         """
@@ -30,28 +165,24 @@ class IPCSSolver(InstationarySolverBase):
             self._Vh[key] = space
 
         # create joint solution
-        self._joint_solution = dlfn.Function(self._Wh)
+        self._solutions = [dlfn.Function(self._Wh), dlfn.Function(self._Wh)]
 
         # create separate solutions
         self._velocities = [dlfn.Function(self._Vh["velocity"]) for _ in range(self._time_stepping.n_levels() + 1)]
         self._intermediate_velocity = dlfn.Function(self._Vh["velocity"])
         self._pressure = dlfn.Function(self._Vh["pressure"])
-        self._phi = dlfn.Function(self._Vh["pressure"])
-        
-        #Insert solutions here with velocity pressure, old velocity old pressure
-        #Dont use phi in solutions
-        #ML:docker
+        self._old_pressure = dlfn.Function(self._Vh["pressure"])
 
     def _setup_problem(self):
         """Method setting up solvers object of the instationary problem.
         """
         assert hasattr(self, "_mesh")
         assert hasattr(self, "_boundary_markers")
-
+    
         if not all(hasattr(self, attr) for attr in ("_Wh", "_Vh"
                                                     "_joint_solution",
                                                     "_velocities",
-                                                    "_pressure", "_phi")):  # pragma: no cover
+                                                    "_pressure", "_old_pressure")):  # pragma: no cover
             self._setup_function_spaces()
 
         if not all(hasattr(self, attr) for attr in ("_next_step_size",
@@ -71,7 +202,7 @@ class IPCSSolver(InstationarySolverBase):
         """Method setting up solver object of the diffusion step."""
         assert hasattr(self, "_Vh")
         assert hasattr(self, "_intermediate_velocity")
-        assert hasattr(self, "_pressure")
+        assert hasattr(self, "_old_pressure")
         assert hasattr(self, "_velocities")
 
         # creating test and trial functions
@@ -89,15 +220,15 @@ class IPCSSolver(InstationarySolverBase):
 
         # velocities used in acceleration term
         velocities = []
-        velocities[0] = velocity
+        velocities.append(velocity)
         for i in range(1, self._time_stepping.n_levels() + 1):
             velocities.append(self._velocities[i])
-
-        # momentum equation
+            
+        # momentum equation           
         self._F = (
                     self._acceleration_term(velocities, w)
                     + self._convective_term(velocity, w)
-                    - self._divergence_term(w, self._pressure)
+                    - self._divergence_term(w, self._old_pressure)
                     + self._viscous_term(velocity, w) / Re
                     ) * dV
 
@@ -115,10 +246,10 @@ class IPCSSolver(InstationarySolverBase):
         # setup problem with Newton linearization
         self._diffusion_problem = dlfn.NonlinearVariationalProblem(self._F,
                                                                    velocity,
-                                                                   self._dirichlet_bcs,
+                                                                   self._dirichlet_bcs['velocity'],
                                                                    self._J_newton)
         # setup non-linear solver
-        self._diffusion_solver = dlfn.NonlinearVariationalSolver(self._problem)
+        self._diffusion_solver = dlfn.NonlinearVariationalSolver(self._diffusion_problem)
         self._diffusion_solver.parameters["newton_solver"]["absolute_tolerance"] = self._tol
         self._diffusion_solver.parameters["newton_solver"]["maximum_iterations"] = self._maxiter
         self._diffusion_solver.parameters["newton_solver"]["relative_tolerance"] = 1.0e1 * self._tol
@@ -128,7 +259,7 @@ class IPCSSolver(InstationarySolverBase):
         """Method setting up solver object of the projection step."""
         assert hasattr(self, "_Vh")
         assert hasattr(self, "_intermediate_velocity")
-        assert hasattr(self, "_pressure")
+        assert hasattr(self, "_old_pressure")
 
         # creating test and trial functions
         Vh = self._Vh["pressure"]
@@ -139,14 +270,15 @@ class IPCSSolver(InstationarySolverBase):
         dV = dlfn.Measure("dx", domain=self._mesh)
 
         # pressure projection equation
-        self._pressure_correction_lhs = dlfn.dot(dlfn.grad(self._phi), dlfn.grad(q)) * dV
-        self._pressure_correction_rhs = (-self._alpha[0]/self._next_step_size) * dlfn.dot(dlfn.div(self._intermediate_velocity), q) * dV
+        self._pressure_correction_lhs = dlfn.dot(dlfn.grad(p), dlfn.grad(q)) * dV
+        self._pressure_correction_rhs = (dlfn.dot(dlfn.grad(self._old_pressure),dlfn.grad(q)) 
+                                         + (-self._alpha[0]/self._next_step_size) * dlfn.dot(dlfn.div(self._intermediate_velocity), q)) * dV
 
         # setup linear problem
-        self._projection_problem = dlfn.LinearVariationalProblem(self._projection_lhs,
-                                                                 self._projection_rhs,
-                                                                 self._phi,
-                                                                 self._dirichlet_bcs_phi)
+        self._projection_problem = dlfn.LinearVariationalProblem(self._pressure_correction_lhs,
+                                                                 self._pressure_correction_rhs,
+                                                                 self._pressure,
+                                                                 self._dirichlet_bcs['pressure'])
         # setup linear solver
         self._projection_solver = dlfn.LinearVariationalSolver(self._projection_problem)
 
@@ -163,15 +295,16 @@ class IPCSSolver(InstationarySolverBase):
         w = dlfn.TestFunction(Vh)
 
         # velocity correction equation
-        self._velocity_correction_lhs = dlfn.dot(self._velocities[0], v) * dV
-        self._velocity_correction_rhs = (dlfn.dot(self._intermediate_velocity, v) - (self._next_step_size / self._alpha[0]) * dlfn.dot(dlfn.grad(self._phi)), v) * dV
+        self._velocity_correction_lhs = dlfn.dot(v, w) * dV
+        self._velocity_correction_rhs = (dlfn.dot(self._intermediate_velocity, w) 
+                                         - (self._next_step_size / self._alpha[0]) * dlfn.dot(dlfn.grad(self._pressure-self._old_pressure), w)) * dV
 
         # setup linear problem
         self._velocity_correction_problem = \
             dlfn.LinearVariationalProblem(self._velocity_correction_lhs,
                                           self._velocity_correction_rhs,
                                           self._velocities[0],
-                                          self._dirichlet_bcs_velocity)
+                                          self._dirichlet_bcs['velocity'])
         # setup linear solver
         self._velocity_correction_solver = \
             dlfn.LinearVariationalSolver(self._velocity_correction_problem)
@@ -207,8 +340,8 @@ class IPCSSolver(InstationarySolverBase):
         dlfn.info("Solving velocity correction step...")
         self._velocity_correction_solver.solve()
 
-        dlfn.info("Solving pressure correction step...")
-        self._pressure_correction_solver.solve()
+        #dlfn.info("Solving pressure correction step...")
+        #self._pressure_correction_solver.solve()
 
     def _update_time_stepping_coefficients(self):
         """Update time stepping coefficients ``_alpha`` and ``_next_step_size``."""
@@ -228,3 +361,20 @@ class IPCSSolver(InstationarySolverBase):
         else:
             for i in range(3):
                 self._alpha[i].assign(alpha[i])
+                
+                
+    @property
+    def solution(self):
+        
+        velocity, pressure = self._solutions[0].split()
+
+        dlfn.assign(velocity, dlfn.project(self._velocities[0], self._Vh['velocity']))
+        dlfn.assign(pressure, dlfn.project(self._pressure, self._Vh['pressure']))
+        
+        old_velocity, old_pressure = self._solutions[1].split()
+
+        dlfn.assign(old_velocity, dlfn.project(self._velocities[1], self._Vh['velocity']))
+        dlfn.assign(old_pressure, dlfn.project(self._old_pressure, self._Vh['pressure']))
+        
+        
+        return self._solutions[0]
