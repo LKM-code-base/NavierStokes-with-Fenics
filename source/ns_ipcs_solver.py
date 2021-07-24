@@ -32,6 +32,8 @@ class IPCSSolver(InstationarySolverBase):
         for i in range(len(alpha)):
             accelerations.append(alpha[i] * dlfn.dot(velocity_solutions[i], w))
         return sum(accelerations)
+        
+        #asserts need to be reworked for ipcs
     
     def _setup_boundary_conditions(self):
         assert hasattr(self, "_Wh")
@@ -327,6 +329,9 @@ class IPCSSolver(InstationarySolverBase):
         ## setup linear solver
         #self._pressure_correction_solver = \
         #    dlfn.LinearVariationalSolver(self._pressure_correction_problem)
+        
+        # if phi is necessary for the solver then you need an additional step for calculating the corrected pressure
+        # pressure projection step needs to be reworked with phi and pressure correction step has to be implemented
 
     def _solve_time_step(self):
         """Solves the nonlinear problem for one time step."""
