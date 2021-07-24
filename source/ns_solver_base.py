@@ -817,8 +817,7 @@ class InstationarySolverBase(SolverBase):
         assert isinstance(initial_conditions, dict)
         assert "velocity" in initial_conditions
         # check that function spaces exist
-        if not all(hasattr(self, attr) for attr in ("_Wh",
-                                                    "_solutions")):
+        if not all(hasattr(self, attr) for attr in self._required_objects):
             self._setup_function_spaces()
         # split functions
         old_velocity, old_pressure = self._solutions[1].split()
