@@ -5,9 +5,6 @@ import math
 import numpy as np
 from dolfin import grad, div, dot, inner
 
-dlfn.parameters["form_compiler"]["representation"] = "uflacs"
-dlfn.parameters["form_compiler"]["cpp_optimize"] = True
-dlfn.parameters["form_compiler"]["optimize"] = True
 dlfn.set_log_level(30)
 
 # parameters
@@ -126,10 +123,10 @@ def solve_problem(time_step):
     initial_conditions["velocity"] = \
             dlfn.Expression(("cos(gamma * x[0]) * sin(gamma * x[1])",
                              "-sin(gamma * x[0]) * cos(gamma * x[1])"),
-                            gamma=gamma, degree=5)
+                            gamma=gamma, degree=3)
     initial_conditions["pressure"] = \
             dlfn.Expression("-1.0/4.0 * (cos(2.0 * gamma * x[0]) + cos(2.0 * gamma * x[1]))",
-                            gamma=gamma, degree=5)
+                            gamma=gamma, degree=3)
     aux_solutions[0].assign(dlfn.project(initial_conditions["velocity"], sub_space_dict["velocity"]))
     aux_solutions[1].assign(dlfn.project(initial_conditions["pressure"], sub_space_dict["pressure"]))
     
@@ -143,6 +140,9 @@ def solve_problem(time_step):
         probes = {"pressure": np.zeros((n_steps, )), "velocity": np.zeros((n_steps, 2))}
         probes["velocity"][cnt] = velocity_solution(0.1, 0.1)
         probes["pressure"][cnt] = pressure_solution(0.1, 0.1)
+        print("velocity(x = 0.1, y = 0.1) = ", velocity_solution(0.1, 0.1))
+        print("pressure(x = 0.1, y = 0.1) = ", pressure_solution(0.1, 0.1))
+
     while current_time < end_time:
         next_time = current_time + time_step
         if (next_time + time_step) - end_time > 1e-9:

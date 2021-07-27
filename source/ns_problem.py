@@ -771,7 +771,6 @@ class InstationaryProblem(ProblemBase):
         self._navier_stokes_solver.set_initial_conditions(self._initial_conditions)
         self._write_xdmf_file(current_time=0.0)
         
-        print(80 * "-")
         if self._Fr is not None:
             print("Solving problem with Re = {0:.2f} and "
                   "Fr = {1:0.2f} until time = {2:0.2f}"
@@ -780,8 +779,6 @@ class InstationaryProblem(ProblemBase):
             print("Solving problem with Re = {0:.2f} and "
                   "until time = {1:0.2f}"
                   .format(self._Re, self._time_stepping.end_time))
-        print(80 * "-")
-        self.preprocess_solution()
         # time loop
         assert hasattr(self, "_postprocessing_frequency")
         assert hasattr(self, "_output_frequency")
@@ -791,7 +788,6 @@ class InstationaryProblem(ProblemBase):
             self._set_next_step_size()
             # update coefficients
             self._time_stepping.update_coefficients()
-#            self._time_stepping.print_coefficients()
             # print info
             print(self._time_stepping)
             # solve problem
@@ -807,5 +803,4 @@ class InstationaryProblem(ProblemBase):
             if self._output_frequency > 0:
                 if self._time_stepping.step_number % self._output_frequency == 0:
                     self._write_xdmf_file(current_time=self._time_stepping.current_time)
-            print(80 * "-")
         print(self._time_stepping)
