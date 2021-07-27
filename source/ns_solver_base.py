@@ -136,16 +136,15 @@ class SolverBase:
                     assert isinstance(traction, dlfn.Expression)
                     F += traction * w[component_index] * dA(bndry_id)
         return F
-    
+
     def _assign_function(self, receiving_functions, assigning_functions):
         """Assign functions from the joint function space to the subspaces or
         vice versa."""
         assert hasattr(self, "_Wh")
         assert isinstance(receiving_functions, (dlfn.Function, dict))
         assert isinstance(assigning_functions, (dlfn.Function, dict))
-        
+        # dictionary of subspaces
         WhSub = self._get_subspaces()
-        
         # check whether a forward or backward assignment should be performed
         forward_assignment = False
         backward_assignment = False
@@ -153,13 +152,13 @@ class SolverBase:
             for key, function in receiving_functions.items():
                 if function in WhSub[key]:
                     forward_assignment = True
-                if forward_assignment == True:
+                if forward_assignment is True:
                     assert function in WhSub[key]
         elif isinstance(assigning_functions, dict):
             for key, function in assigning_functions.items():
                 if function in WhSub[key]:
                     backward_assignment = True
-                if backward_assignment == True:
+                if backward_assignment is True:
                     assert function in WhSub[key]
         elif isinstance(receiving_functions, dlfn.Function) and isinstance(assigning_functions, dlfn.Function):
             for key, space in WhSub.items():
@@ -172,19 +171,19 @@ class SolverBase:
         else:
             raise RuntimeError()
         assert forward_assignment or backward_assignment
-            
+
         # forward assignment
-        if forward_assignment == True:
+        if forward_assignment is True:
             assert isinstance(assigning_functions, dlfn.Function)
             if not isinstance(receiving_functions, dict):
-                assert isinstance(receiving_functions, dlfn.Function)                
+                assert isinstance(receiving_functions, dlfn.Function)
                 for key, space in WhSub.items():
                     if receiving_functions in space:
                         break
                 index = self._field_association[key]
                 assert assigning_functions in self._Wh.sub(index)
                 forward_subspace_assigners = self._get_forward_subspace_assigners()
-                forward_subspace_assigners[key].assign(receiving_functions, assigning_functions) 
+                forward_subspace_assigners[key].assign(receiving_functions, assigning_functions)
             else:
                 if len(receiving_functions) == 2:
                     receiving_function_list = [None] * 2
@@ -210,7 +209,7 @@ class SolverBase:
                 index = self._field_association[key]
                 assert receiving_functions in self._Wh.sub(index)
                 backward_subspace_assigners = self._get_backward_subspace_assigners()
-                backward_subspace_assigners[key].assign(receiving_functions, assigning_functions) 
+                backward_subspace_assigners[key].assign(receiving_functions, assigning_functions)
             else:
                 if len(assigning_functions) == 2:
                     assigning_functions_list = [None] * 2
@@ -328,7 +327,7 @@ class SolverBase:
             self._WhSub[field] = self._Wh.sub(subspace_index).collapse()
 
         return self._WhSub[field]
-    
+
     def _get_subspaces(self):
         """Returns a dictionary of the subspaces of all physical fields."""
         assert hasattr(self, "_Wh")
@@ -340,7 +339,7 @@ class SolverBase:
         return self._WhSub
 
     def _get_backward_assigner(self):
-        """Returns a function assigner which assigns from all subspaces to the 
+        """Returns a function assigner which assigns from all subspaces to the
         joint function space."""
         assert hasattr(self, "_Wh")
         assert hasattr(self, "_WhSub")
@@ -352,9 +351,9 @@ class SolverBase:
             self._backward_assigner = dlfn.FunctionAssigner(receiving_space,
                                                             assigning_spaces)
         return self._backward_assigner
-    
+
     def _get_backward_subspace_assigners(self):
-        """Returns a dictionary of function assigners which assign from one 
+        """Returns a dictionary of function assigners which assign from one
         subspace to a component of the joint function space."""
         assert hasattr(self, "_Wh")
         assert hasattr(self, "_WhSub")
@@ -381,7 +380,7 @@ class SolverBase:
         return self._forward_assigner
 
     def _get_forward_subspace_assigners(self):
-        """Returns a dictionary of function assigners which assign from one 
+        """Returns a dictionary of function assigners which assign from one
         component of the joint function space to a subspace."""
         assert hasattr(self, "_Wh")
         assert hasattr(self, "_WhSub")
