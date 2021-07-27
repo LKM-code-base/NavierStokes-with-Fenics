@@ -105,7 +105,6 @@ class SolverBase:
         dA = dlfn.Measure("ds", domain=self._mesh, subdomain_data=self._boundary_markers)
 
         if hasattr(self, "_traction_bcs"):
-            print("Foo...")
             for bc in self._traction_bcs:
                 # unpack values
                 if len(bc) == 3:
@@ -135,67 +134,93 @@ class SolverBase:
         return F
 
     def _assign_function(self, receiving_functions, assigning_functions):
+        """Assign functions from the joint function space to the subspaces or
+        vice versa."""
+        assert hasattr(self, "_Wh")
         assert isinstance(receiving_functions, (dlfn.Function, dict))
         assert isinstance(assigning_functions, (dlfn.Function, dict))
+        # dictionary of subspaces
+        WhSub = self._get_subspaces()
+        # check whether a forward or backward assignment should be performed
+        forward_assignment = False
+        backward_assignment = False
+        if isinstance(receiving_functions, dict):
+            for key, function in receiving_functions.items():
+                if function in WhSub[key]:
+                    forward_assignment = True
+                if forward_assignment is True:
+                    assert function in WhSub[key]
+        elif isinstance(assigning_functions, dict):
+            for key, function in assigning_functions.items():
+                if function in WhSub[key]:
+                    backward_assignment = True
+                if backward_assignment is True:
+                    assert function in WhSub[key]
+        elif isinstance(receiving_functions, dlfn.Function) and isinstance(assigning_functions, dlfn.Function):
+            for key, space in WhSub.items():
+                if receiving_functions in space:
+                    forward_assignment = True
+                    break
+                elif assigning_functions in space:
+                    backward_assignment = True
+                    break
+        else:
+            raise RuntimeError()
+        assert forward_assignment or backward_assignment
 
         # forward assignment
-        if isinstance(receiving_functions, dict):
+        if forward_assignment is True:
             assert isinstance(assigning_functions, dlfn.Function)
-            assert len(receiving_functions) > 0
-            # create function assigner
-            if not hasattr(self, "_forward_function_assigner"):
-                receiving_spaces = [None, None]
-                for field in ("velocity", "pressure"):
-                    receiving_spaces[self._field_association[field]] = self._get_subspace(field)
-                assigning_space = self._Wh
-                self._forward_function_assigner = dlfn.FunctionAssigner(receiving_spaces,
-                                                                        assigning_space)
-            # complete dictionary of functions
-            for field in ("velocity", "pressure"):
-                if field not in receiving_functions:
-                    subspace = self._get_subspace(field)
-                    receiving_functions[field] = dlfn.Function(subspace)
-            # create list from dictionary
-            receiving_function_list = [None, ] * 2
-            for field in ("velocity", "pressure"):
-                subspace_index = self._field_association[field]
-                receiving_function_list[subspace_index] = receiving_functions[field]
-            # assign functions
-            self._forward_function_assigner.assign(receiving_function_list,
-                                                   assigning_functions)
-
-        # backward assignment
-        elif isinstance(receiving_functions, dlfn.Function):
-            assert isinstance(assigning_functions, dict)
-            assert len(assigning_functions) > 0
-            # create function assigner
-            if not hasattr(self, "_backward_function_assigner"):
-                assigning_spaces = [None, None]
-                for field in ("velocity", "pressure"):
-                    assigning_spaces[self._field_association[field]] = self._get_subspace(field)
-                receiving_space = self._Wh
-                self._backward_function_assigner = dlfn.FunctionAssigner(receiving_space,
-                                                                         assigning_spaces)
-            # complete dictionary of functions
-            velocity_space = self._get_subspace("velocity")
-            pressure_space = self._get_subspace("pressure")
-            for field in ("velocity", "pressure"):
-                if field not in assigning_functions:
-                    # create auxiliary dictionary
-                    aux_functions = dict()
-                    aux_functions["velocity"] = dlfn.Function(velocity_space)
-                    aux_functions["pressure"] = dlfn.Function(pressure_space)
-                    # assign functions in auxilary dictionary
-                    self._assign_function(aux_functions, receiving_functions)
-                    # transfer function
-                    assigning_functions[field] = aux_functions[field]
-            # create list from dictionary
-            assigning_function_list = [None, ] * 2
-            for field in ("velocity", "pressure"):
-                subspace_index = self._field_association[field]
-                assigning_function_list[subspace_index] = assigning_functions[field]
-
-            self._backward_function_assigner.assign(receiving_functions, assigning_function_list)
+            if not isinstance(receiving_functions, dict):
+                assert isinstance(receiving_functions, dlfn.Function)
+                for key, space in WhSub.items():
+                    if receiving_functions in space:
+                        break
+                index = self._field_association[key]
+                assert assigning_functions in self._Wh.sub(index)
+                forward_subspace_assigners = self._get_forward_subspace_assigners()
+                forward_subspace_assigners[key].assign(receiving_functions, assigning_functions)
+            else:
+                if len(receiving_functions) == 2:
+                    receiving_function_list = [None] * 2
+                    for key, function in receiving_functions.items():
+                        receiving_function_list[self._field_association[key]] = function
+                    forward_assigner = self._get_forward_assigner()
+                    forward_assigner.assign(receiving_function_list, assigning_functions)
+                elif len(receiving_functions) == 1:
+                    key = list(receiving_functions.keys())[0]
+                    index = self._field_association[key]
+                    assert assigning_functions in self._Wh.sub(index)
+                    forward_subspace_assigners = self._get_forward_subspace_assigners()
+                    forward_subspace_assigners[key].assign(receiving_functions[key], assigning_functions)
+                else:
+                    raise RuntimeError()
+        else:
+            assert isinstance(receiving_functions, dlfn.Function)
+            if not isinstance(assigning_functions, dict):
+                assert isinstance(assigning_functions, dlfn.Function)
+                for key, space in WhSub.items():
+                    if assigning_functions in space:
+                        break
+                index = self._field_association[key]
+                assert receiving_functions in self._Wh.sub(index)
+                backward_subspace_assigners = self._get_backward_subspace_assigners()
+                backward_subspace_assigners[key].assign(receiving_functions, assigning_functions)
+            else:
+                if len(assigning_functions) == 2:
+                    assigning_functions_list = [None] * 2
+                    for key, function in assigning_functions.items():
+                        assigning_functions_list[self._field_association[key]] = function
+                    backward_assigner = self._get_backward_assigner()
+                    backward_assigner.assign(receiving_functions, assigning_functions_list)
+                elif len(assigning_functions) == 1:
+                    key = list(assigning_functions.keys())[0]
+                    index = self._field_association[key]
+                    assert receiving_functions in self._Wh.sub(index)
+                    backward_assigners = self._get_backward_subspace_assigners()
+                    backward_assigners[key].assign(receiving_functions, assigning_functions[key])
+                else:
+                    raise RuntimeError()
 
     def _check_boundary_condition_format(self, bc, internal_constraint=False):
         """
@@ -289,6 +314,7 @@ class SolverBase:
         return inner(div(u), v)
 
     def _get_subspace(self, field):
+        """Returns the subspace of the `field`."""
         assert isinstance(field, str)
         assert field in self._field_association
         if not hasattr(self, "_WhSub"):
@@ -296,14 +322,79 @@ class SolverBase:
 
         if field not in self._WhSub:
             subspace_index = self._field_association[field]
-            if hasattr(self, "_constrained_domain"):
-                self._WhSub[field] = dlfn.FunctionSpace(self._mesh,
-                                                        self._Wh.sub(subspace_index).ufl_element(),
-                                                        constrained_domain=self._constrained_domain)
-            else:
-                self._WhSub[field] = dlfn.FunctionSpace(self._mesh,
-                                                        self._Wh.sub(subspace_index).ufl_element())
+            self._WhSub[field] = self._Wh.sub(subspace_index).collapse()
+
         return self._WhSub[field]
+
+    def _get_subspaces(self):
+        """Returns a dictionary of the subspaces of all physical fields."""
+        assert hasattr(self, "_Wh")
+        if not hasattr(self, "_WhSub"):
+            self._WhSub = dict()
+        for key, index in self._field_association.items():
+            if key not in self._WhSub:
+                self._WhSub[key] = self._Wh.sub(index).collapse()
+        return self._WhSub
+
+    def _get_backward_assigner(self):
+        """Returns a function assigner which assigns from all subspaces to the
+        joint function space."""
+        assert hasattr(self, "_Wh")
+        assert hasattr(self, "_WhSub")
+        if not hasattr(self, "_backward_assigner"):
+            assigning_spaces = [None] * len(self._WhSub)
+            for key, sub_space in self._WhSub.items():
+                assigning_spaces[self._field_association[key]] = sub_space
+            receiving_space = self._Wh
+            self._backward_assigner = dlfn.FunctionAssigner(receiving_space,
+                                                            assigning_spaces)
+        return self._backward_assigner
+
+    def _get_backward_subspace_assigners(self):
+        """Returns a dictionary of function assigners which assign from one
+        subspace to a component of the joint function space."""
+        assert hasattr(self, "_Wh")
+        assert hasattr(self, "_WhSub")
+        if not hasattr(self, "_backward_subspace_assigners"):
+            self._backward_subspace_assigners = dict()
+            for key, assigning_space in self._WhSub.items():
+                receiving_space = self._Wh.sub(self._field_association[key])
+                self._backward_subspace_assigners[key] = dlfn.FunctionAssigner(receiving_space,
+                                                                               assigning_space)
+        return self._backward_subspace_assigners
+
+    def _get_forward_assigner(self):
+        """Returns a function assigner which assigns from the joint function
+        space to all subspaces."""
+        assert hasattr(self, "_Wh")
+        assert hasattr(self, "_WhSub")
+        if not hasattr(self, "_forward_assigner"):
+            receiving_spaces = [None] * len(self._WhSub)
+            for key, sub_space in self._WhSub.items():
+                receiving_spaces[self._field_association[key]] = sub_space
+            assigning_space = self._Wh
+            self._forward_assigner = dlfn.FunctionAssigner(receiving_spaces,
+                                                           assigning_space)
+        return self._forward_assigner
+
+    def _get_forward_subspace_assigners(self):
+        """Returns a dictionary of function assigners which assign from one
+        component of the joint function space to a subspace."""
+        assert hasattr(self, "_Wh")
+        assert hasattr(self, "_WhSub")
+        if not hasattr(self, "_forward_subspace_assigners"):
+            self._forward_subspace_assigners = dict()
+            for key, receiving_space in self._WhSub.items():
+                assigning_space = self._Wh.sub(self._field_association[key])
+                self._forward_subspace_assigners[key] = \
+                    dlfn.FunctionAssigner(receiving_space, assigning_space)
+        return self._forward_subspace_assigners
+
+    def _viscous_term(self, u, v):
+        assert isinstance(u, self._form_function_types)
+        assert isinstance(v, self._form_function_types)
+
+        return self._one_half * inner(grad(u) + grad(u).T, grad(v) + grad(v).T)
 
     def _picard_linerization_convective_term(self, u, v, w):
         assert isinstance(u, self._form_function_types)
@@ -923,6 +1014,9 @@ class InstationarySolverBase(SolverBase):
         if not all(hasattr(self, attr) for attr in ("_Wh",
                                                     "_solutions")):
             self._setup_function_spaces()
+        # split functions
+        velocity, pressure = self._solutions[0].split()
+        old_velocity, old_pressure = self._solutions[1].split()
 
         # velocity part
         # extract velocity initial condition
@@ -939,11 +1033,12 @@ class InstationarySolverBase(SolverBase):
             # type of the entries
             assert all(isinstance(x, float) for x in velocity_condition)
             velocity_expression = dlfn.Constant(velocity_condition)
-
-        # project velocity
         velocity_space = self._get_subspace("velocity")
         projected_velocity_condition = dlfn.project(velocity_expression,
                                                     velocity_space)
+        self._assign_function(old_velocity, projected_velocity_condition)
+        self._assign_function(velocity, projected_velocity_condition)
+
         # pressure part
         if "pressure" in initial_conditions:
             pressure_condition = initial_conditions["pressure"]
@@ -959,13 +1054,9 @@ class InstationarySolverBase(SolverBase):
             pressure_space = self._get_subspace("pressure")
             projected_pressure_condition = dlfn.project(pressure_expression,
                                                         pressure_space)
+            self._assign_function(old_pressure, projected_pressure_condition)
+            self._assign_function(pressure, projected_pressure_condition)
         # TODO: Implement Poisson equation for the initial pressure
-
-        # assign functions
-        self._assign_function(self._solutions[1],
-                              {"velocity": projected_velocity_condition,
-                               "pressure": projected_pressure_condition})
-        self._solutions[0].assign(self._solutions[1])
 
     def solve(self):
         """Solves the problem for one time step."""
