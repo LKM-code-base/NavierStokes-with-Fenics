@@ -1044,7 +1044,7 @@ class InstationarySolverBase(SolverBase):
             else:
                 pressure_expression = dlfn.Constant(pressure_condition)
             # project and assign
-            pressure_space = self._get_subspace("velocity")
+            pressure_space = self._get_subspace("pressure")
             projected_pressure_condition = dlfn.project(pressure_expression,
                                                         pressure_space)
             self._assign_function(old_pressure, projected_pressure_condition)
