@@ -362,9 +362,6 @@ class StationaryProblem(ProblemBase):
         # setting discretization parameters
         # polynomial degree
         self._p_deg = 1
-        # quadrature degree
-        q_deg = self._p_deg + 2
-        dlfn.parameters["form_compiler"]["quadrature_degree"] = q_deg
 
     def _get_filename(self):
         """
@@ -588,9 +585,6 @@ class InstationaryProblem(ProblemBase):
         # setting discretization parameters
         # polynomial degree
         self._p_deg = 1
-        # quadrature degree
-        q_deg = self._p_deg + 2
-        dlfn.parameters["form_compiler"]["quadrature_degree"] = q_deg
 
     def _compute_cfl_number(self, step_size):
         """
