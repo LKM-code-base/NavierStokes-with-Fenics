@@ -959,9 +959,7 @@ class InstationarySolverBase(SolverBase):
             pressure_space = self._get_subspace("pressure")
             projected_pressure_condition = dlfn.project(pressure_expression,
                                                         pressure_space)
-        else:
-            raise RuntimeError()
-            # TODO: Implement Poisson equation for the initial pressure
+        # TODO: Implement Poisson equation for the initial pressure
 
         # assign functions
         self._assign_function(self._solutions[1],
