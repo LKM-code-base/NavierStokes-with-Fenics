@@ -20,7 +20,7 @@ class ProblemBase:
         # set write and read directory
         if main_dir is None:
             self._main_dir = os.getcwd()
-        else:
+        else:  # pragma: no cover
             assert isinstance(main_dir, str)
             assert path.exist(main_dir)
             self._main_dir = main_dir
@@ -627,16 +627,16 @@ class InstationaryProblem(ProblemBase):
         Class method setting the size of the next time step.
         """
         assert hasattr(self, "_time_stepping")
-        if self._adaptive_time_stepping is False:
-            return
         next_step_size = self._time_stepping.get_next_step_size()
         assert next_step_size > 0.0
         assert math.isfinite(next_step_size)
-
         cfl = self._compute_cfl_number(next_step_size)
         if cfl > 1.0:
             next_step_size /= cfl
-            self._time_stepping.set_desired_next_step_size(next_step_size)
+            if self._adaptive_time_stepping is False:
+                return
+            else:  # pragma: no cover
+                self._time_stepping.set_desired_next_step_size(next_step_size)
 
     def _get_filename(self):
         """

@@ -87,7 +87,7 @@ class TaylorGreenVortex(InstationaryProblem):
 
     def set_boundary_conditions(self):
         # pressure mean value constraint
-        self._bcs = ((PressureBCType.mean_value , None, 0.0), )
+        self._bcs = ((PressureBCType.mean_value, None, 0.0), )
 
     def set_periodic_boundary_conditions(self):
         """Set periodic boundary conditions in x- and y-direction."""
@@ -102,11 +102,9 @@ class TaylorGreenVortex(InstationaryProblem):
         assert self._time_stepping.is_at_end()
         assert self._time_stepping.current_time == self._time_stepping.end_time
         current_time = self._time_stepping.current_time
-        
         # get velocity and pressure
         velocity = self._get_velocity()
         pressure = self._get_pressure()
-        
         # exact solutions
         exact_solution = dict()
         exact_solution["velocity"] = \
@@ -114,8 +112,8 @@ class TaylorGreenVortex(InstationaryProblem):
                              "-exp(-2.0 * gamma * gamma / Re * t) * sin(gamma * x[0]) * cos(gamma * x[1])"),
                             gamma=gamma, Re=Re, t=current_time, degree=3)
         exact_solution["pressure"] = \
-        dlfn.Expression("-1.0/4.0 * exp(-4.0 * gamma * gamma / Re * t) * (cos(2.0 * gamma * x[0]) + cos(2.0 * gamma * x[1]))",
-                        gamma=gamma, Re=Re, t=current_time, degree=3)
+            dlfn.Expression("-1.0/4.0 * exp(-4.0 * gamma * gamma / Re * t) * (cos(2.0 * gamma * x[0]) + cos(2.0 * gamma * x[1]))",
+                            gamma=gamma, Re=Re, t=current_time, degree=3)
         errors["velocity"].append(dlfn.errornorm(exact_solution["velocity"], velocity))
         errors["pressure"].append(dlfn.errornorm(exact_solution["pressure"], pressure))
 
@@ -129,7 +127,7 @@ if __name__ == "__main__":
     for i in range(n_levels):
         time_step = initial_time_step * time_step_reduction_factor**i
         time_step_sizes[i] = time_step
-        taylor_green = TaylorGreenVortex(time_step )
+        taylor_green = TaylorGreenVortex(time_step)
         taylor_green.n_points = 128
         taylor_green.solve_problem()
         taylor_green.compute_error()
