@@ -168,7 +168,7 @@ class SolverBase:
                 elif assigning_functions in space:
                     backward_assignment = True
                     break
-        else:
+        else:  # pragma: no cover
             raise RuntimeError()
         assert forward_assignment or backward_assignment
 
@@ -197,7 +197,7 @@ class SolverBase:
                     assert assigning_functions in self._Wh.sub(index)
                     forward_subspace_assigners = self._get_forward_subspace_assigners()
                     forward_subspace_assigners[key].assign(receiving_functions[key], assigning_functions)
-                else:
+                else:  # pragma: no cover
                     raise RuntimeError()
         else:
             assert isinstance(receiving_functions, dlfn.Function)
@@ -223,7 +223,7 @@ class SolverBase:
                     assert receiving_functions in self._Wh.sub(index)
                     backward_assigners = self._get_backward_subspace_assigners()
                     backward_assigners[key].assign(receiving_functions, assigning_functions[key])
-                else:
+                else:  # pragma: no cover
                     raise RuntimeError()
 
     def _check_boundary_condition_format(self, bc, internal_constraint=False):
@@ -681,7 +681,7 @@ class SolverBase:
 
                 if isinstance(bc[0], VelocityBCType):
                     velocity_constraints.append(bc)
-                elif isinstance(bc[0], TractionBCType):
+                elif isinstance(bc[0], TractionBCType):  # pragma: no cover
                     raise NotImplementedError()
                 elif isinstance(bc[0], PressureBCType):
                     pressure_constraints.append(bc)

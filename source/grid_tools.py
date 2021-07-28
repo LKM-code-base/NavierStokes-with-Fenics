@@ -29,16 +29,16 @@ def _create_meshio_mesh(mesh, cell_type, prune_z=False):  # pragma: no cover
             data_name = "cell_markers"
         elif cell_type == "line":
             data_name = "facet_markers"
-        else:
+        else:  # pragma: no cover
             raise RuntimeError()
     elif "triangle" in mesh.cells_dict and "tetra" in mesh.cells_dict:
         if cell_type == "tetra":
             data_name = "cell_markers"
         elif cell_type == "triangle":
             data_name = "facet_markers"
-        else:
+        else:  # pragma: no cover
             raise RuntimeError()
-    else:
+    else:  # pragma: no cover
         raise RuntimeError()
     # create mesh object
     out_mesh = meshio.Mesh(points=mesh.points, cells={cell_type: cells},
@@ -84,7 +84,7 @@ def generate_xdmf_mesh(geo_file):  # pragma: no cover
     if msh_file is None:
         try:
             subprocess.run(["gmsh", geo_file, "-3"], check=True)
-        except subprocess.SubprocessError:
+        except subprocess.SubprocessError:  # pragma: no cover
             raise RuntimeError("GMSH is not installed on your machine and "
                                "the msh file does not exist.")
     # read msh file
@@ -97,7 +97,7 @@ def generate_xdmf_mesh(geo_file):  # pragma: no cover
     elif "triangle" in mesh.cells_dict and "tetra" in mesh.cells_dict:
         assert "triangle" in mesh.cell_data_dict["gmsh:physical"]
         dim = 3
-    else:
+    else:  # pragma: no cover
         raise RuntimeError()
     # specify cell types
     if dim == 2:
