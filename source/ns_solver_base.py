@@ -137,6 +137,95 @@ class SolverBase:
                     F += traction * w[component_index] * dA(bndry_id)
         return F
 
+    def _assign_function(self, receiving_functions, assigning_functions):
+        """Assign functions from the joint function space to the subspaces or
+        vice versa."""
+        assert hasattr(self, "_Wh")
+        assert isinstance(receiving_functions, (dlfn.Function, dict))
+        assert isinstance(assigning_functions, (dlfn.Function, dict))
+        # dictionary of subspaces
+        WhSub = self._get_subspaces()
+        # check whether a forward or backward assignment should be performed
+        forward_assignment = False
+        backward_assignment = False
+        if isinstance(receiving_functions, dict):
+            for key, function in receiving_functions.items():
+                if function in WhSub[key]:
+                    forward_assignment = True
+                if forward_assignment is True:
+                    assert function in WhSub[key]
+        elif isinstance(assigning_functions, dict):
+            for key, function in assigning_functions.items():
+                if function in WhSub[key]:
+                    backward_assignment = True
+                if backward_assignment is True:
+                    assert function in WhSub[key]
+        elif isinstance(receiving_functions, dlfn.Function) and isinstance(assigning_functions, dlfn.Function):
+            for key, space in WhSub.items():
+                if receiving_functions in space:
+                    forward_assignment = True
+                    break
+                elif assigning_functions in space:
+                    backward_assignment = True
+                    break
+        else:  # pragma: no cover
+            raise RuntimeError()
+        assert forward_assignment or backward_assignment
+
+        # forward assignment
+        if forward_assignment is True:
+            assert isinstance(assigning_functions, dlfn.Function)
+            if not isinstance(receiving_functions, dict):
+                assert isinstance(receiving_functions, dlfn.Function)
+                for key, space in WhSub.items():
+                    if receiving_functions in space:
+                        break
+                index = self._field_association[key]
+                assert assigning_functions in self._Wh.sub(index)
+                forward_subspace_assigners = self._get_forward_subspace_assigners()
+                forward_subspace_assigners[key].assign(receiving_functions, assigning_functions)
+            else:
+                if len(receiving_functions) == 2:
+                    receiving_function_list = [None] * 2
+                    for key, function in receiving_functions.items():
+                        receiving_function_list[self._field_association[key]] = function
+                    forward_assigner = self._get_forward_assigner()
+                    forward_assigner.assign(receiving_function_list, assigning_functions)
+                elif len(receiving_functions) == 1:
+                    key = list(receiving_functions.keys())[0]
+                    index = self._field_association[key]
+                    assert assigning_functions in self._Wh.sub(index)
+                    forward_subspace_assigners = self._get_forward_subspace_assigners()
+                    forward_subspace_assigners[key].assign(receiving_functions[key], assigning_functions)
+                else:  # pragma: no cover
+                    raise RuntimeError()
+        else:
+            assert isinstance(receiving_functions, dlfn.Function)
+            if not isinstance(assigning_functions, dict):
+                assert isinstance(assigning_functions, dlfn.Function)
+                for key, space in WhSub.items():
+                    if assigning_functions in space:
+                        break
+                index = self._field_association[key]
+                assert receiving_functions in self._Wh.sub(index)
+                backward_subspace_assigners = self._get_backward_subspace_assigners()
+                backward_subspace_assigners[key].assign(receiving_functions, assigning_functions)
+            else:
+                if len(assigning_functions) == 2:
+                    assigning_functions_list = [None] * 2
+                    for key, function in assigning_functions.items():
+                        assigning_functions_list[self._field_association[key]] = function
+                    backward_assigner = self._get_backward_assigner()
+                    backward_assigner.assign(receiving_functions, assigning_functions_list)
+                elif len(assigning_functions) == 1:
+                    key = list(assigning_functions.keys())[0]
+                    index = self._field_association[key]
+                    assert receiving_functions in self._Wh.sub(index)
+                    backward_assigners = self._get_backward_subspace_assigners()
+                    backward_assigners[key].assign(receiving_functions, assigning_functions[key])
+                else:  # pragma: no cover
+                    raise RuntimeError()
+
     def _check_boundary_condition_format(self, bc, internal_constraint=False):
         """
         Check the general format of an arbitrary boundary condition.
@@ -226,6 +315,83 @@ class SolverBase:
 
         return inner(div(u), v)
 
+    def _get_subspace(self, field):
+        """Returns the subspace of the `field`."""
+        assert isinstance(field, str)
+        assert field in self._field_association
+        if not hasattr(self, "_WhSub"):
+            self._WhSub = dict()
+
+        if field not in self._WhSub:
+            subspace_index = self._field_association[field]
+            self._WhSub[field] = self._Wh.sub(subspace_index).collapse()
+
+        return self._WhSub[field]
+
+    def _get_subspaces(self):
+        """Returns a dictionary of the subspaces of all physical fields."""
+        assert hasattr(self, "_Wh")
+        if not hasattr(self, "_WhSub"):
+            self._WhSub = dict()
+        for key, index in self._field_association.items():
+            if key not in self._WhSub:
+                self._WhSub[key] = self._Wh.sub(index).collapse()
+        return self._WhSub
+
+    def _get_backward_assigner(self):
+        """Returns a function assigner which assigns from all subspaces to the
+        joint function space."""
+        assert hasattr(self, "_Wh")
+        assert hasattr(self, "_WhSub")
+        if not hasattr(self, "_backward_assigner"):
+            assigning_spaces = [None] * len(self._WhSub)
+            for key, sub_space in self._WhSub.items():
+                assigning_spaces[self._field_association[key]] = sub_space
+            receiving_space = self._Wh
+            self._backward_assigner = dlfn.FunctionAssigner(receiving_space,
+                                                            assigning_spaces)
+        return self._backward_assigner
+
+    def _get_backward_subspace_assigners(self):
+        """Returns a dictionary of function assigners which assign from one
+        subspace to a component of the joint function space."""
+        assert hasattr(self, "_Wh")
+        assert hasattr(self, "_WhSub")
+        if not hasattr(self, "_backward_subspace_assigners"):
+            self._backward_subspace_assigners = dict()
+            for key, assigning_space in self._WhSub.items():
+                receiving_space = self._Wh.sub(self._field_association[key])
+                self._backward_subspace_assigners[key] = dlfn.FunctionAssigner(receiving_space,
+                                                                               assigning_space)
+        return self._backward_subspace_assigners
+
+    def _get_forward_assigner(self):
+        """Returns a function assigner which assigns from the joint function
+        space to all subspaces."""
+        assert hasattr(self, "_Wh")
+        assert hasattr(self, "_WhSub")
+        if not hasattr(self, "_forward_assigner"):
+            receiving_spaces = [None] * len(self._WhSub)
+            for key, sub_space in self._WhSub.items():
+                receiving_spaces[self._field_association[key]] = sub_space
+            assigning_space = self._Wh
+            self._forward_assigner = dlfn.FunctionAssigner(receiving_spaces,
+                                                           assigning_space)
+        return self._forward_assigner
+
+    def _get_forward_subspace_assigners(self):
+        """Returns a dictionary of function assigners which assign from one
+        component of the joint function space to a subspace."""
+        assert hasattr(self, "_Wh")
+        assert hasattr(self, "_WhSub")
+        if not hasattr(self, "_forward_subspace_assigners"):
+            self._forward_subspace_assigners = dict()
+            for key, receiving_space in self._WhSub.items():
+                assigning_space = self._Wh.sub(self._field_association[key])
+                self._forward_subspace_assigners[key] = \
+                    dlfn.FunctionAssigner(receiving_space, assigning_space)
+        return self._forward_subspace_assigners
+
     def _viscous_term(self, u, v):
         assert isinstance(u, self._form_function_types)
         assert isinstance(v, self._form_function_types)
@@ -288,7 +454,11 @@ class SolverBase:
         mixedElement = dlfn.MixedElement([elemV, elemP])
 
         # mixed function space
-        self._Wh = dlfn.FunctionSpace(self._mesh, mixedElement)
+        if hasattr(self, "_constrained_domain"):
+            self._Wh = dlfn.FunctionSpace(self._mesh, mixedElement,
+                                          constrained_domain=self._constrained_domain)
+        else:
+            self._Wh = dlfn.FunctionSpace(self._mesh, mixedElement)
         self._n_dofs = self._Wh.dim()
 
         assert hasattr(self, "_n_cells")
@@ -297,89 +467,90 @@ class SolverBase:
     def _setup_boundary_conditions(self):
         assert hasattr(self, "_Wh")
         assert hasattr(self, "_boundary_markers")
-        assert hasattr(self, "_velocity_bcs")
+
         # empty dirichlet bcs
         self._dirichlet_bcs = []
 
         # velocity part
-        velocity_space = self._Wh.sub(self._field_association["velocity"])
-        for bc in self._velocity_bcs:
-            # unpack values
-            if len(bc) == 3:
-                bc_type, bndry_id, value = bc
-            elif len(bc) == 4:
-                bc_type, bndry_id, component_index, value = bc
-            else:  # pragma: no cover
-                raise RuntimeError()
-            # create dolfin.DirichletBC object
-            if bc_type is VelocityBCType.no_slip:
-                bc_object = dlfn.DirichletBC(velocity_space, self._null_vector,
-                                             self._boundary_markers, bndry_id)
-                self._dirichlet_bcs.append(bc_object)
+        if hasattr(self, "_velocity_bcs"):
+            velocity_space = self._Wh.sub(self._field_association["velocity"])
+            for bc in self._velocity_bcs:
+                # unpack values
+                if len(bc) == 3:
+                    bc_type, bndry_id, value = bc
+                elif len(bc) == 4:
+                    bc_type, bndry_id, component_index, value = bc
+                else:  # pragma: no cover
+                    raise RuntimeError()
+                # create dolfin.DirichletBC object
+                if bc_type is VelocityBCType.no_slip:
+                    bc_object = dlfn.DirichletBC(velocity_space, self._null_vector,
+                                                 self._boundary_markers, bndry_id)
+                    self._dirichlet_bcs.append(bc_object)
 
-            elif bc_type is VelocityBCType.no_normal_flux:
-                # compute normal vector of boundary
-                bndry_normal = boundary_normal(self._mesh, self._boundary_markers, bndry_id)
-                # find associated component
-                bndry_normal = np.array(bndry_normal)
-                normal_component_index = int(np.abs(bndry_normal).argmax())
-                # check that direction is either e_x, e_y or e_z
-                assert abs(abs(bndry_normal[normal_component_index]) - 1.0) < 5.0e-15
-                assert all([abs(bndry_normal[d]) < 5.0e-15 for d in range(self._space_dim) if d != normal_component_index])
-                # construct boundary condition on subspace
-                bc_object = dlfn.DirichletBC(velocity_space.sub(normal_component_index),
-                                             self._null_scalar, self._boundary_markers,
-                                             bndry_id)
-                self._dirichlet_bcs.append(bc_object)
-
-            elif bc_type is VelocityBCType.no_tangential_flux:
-                # compute normal vector of boundary
-                bndry_normal = boundary_normal(self._mesh, self._boundary_markers, bndry_id)
-                # find associated component
-                bndry_normal = np.array(bndry_normal)
-                normal_component_index = int(np.abs(bndry_normal).argmax())
-                # check that direction is either e_x, e_y or e_z
-                assert abs(bndry_normal[normal_component_index] - 1.0) < 5.0e-15
-                assert all([abs(bndry_normal[d]) < 5.0e-15 for d in range(self._space_dim) if d != normal_component_index])
-                # compute tangential components
-                tangential_component_indices = (d for d in range(self._space_dim) if d != normal_component_index)
-                # construct boundary condition on subspace
-                for component_index in tangential_component_indices:
-                    bc_object = dlfn.DirichletBC(velocity_space.sub(component_index),
+                elif bc_type is VelocityBCType.no_normal_flux:
+                    # compute normal vector of boundary
+                    bndry_normal = boundary_normal(self._mesh, self._boundary_markers, bndry_id)
+                    # find associated component
+                    bndry_normal = np.array(bndry_normal)
+                    normal_component_index = int(np.abs(bndry_normal).argmax())
+                    # check that direction is either e_x, e_y or e_z
+                    assert abs(abs(bndry_normal[normal_component_index]) - 1.0) < 5.0e-15
+                    assert all([abs(bndry_normal[d]) < 5.0e-15 for d in range(self._space_dim) if d != normal_component_index])
+                    # construct boundary condition on subspace
+                    bc_object = dlfn.DirichletBC(velocity_space.sub(normal_component_index),
                                                  self._null_scalar, self._boundary_markers,
                                                  bndry_id)
                     self._dirichlet_bcs.append(bc_object)
 
-            elif bc_type is VelocityBCType.constant:
-                assert isinstance(value, (tuple, list))
-                const_function = dlfn.Constant(value)
-                bc_object = dlfn.DirichletBC(velocity_space, const_function,
-                                             self._boundary_markers, bndry_id)
-                self._dirichlet_bcs.append(bc_object)
+                elif bc_type is VelocityBCType.no_tangential_flux:
+                    # compute normal vector of boundary
+                    bndry_normal = boundary_normal(self._mesh, self._boundary_markers, bndry_id)
+                    # find associated component
+                    bndry_normal = np.array(bndry_normal)
+                    normal_component_index = int(np.abs(bndry_normal).argmax())
+                    # check that direction is either e_x, e_y or e_z
+                    assert abs(bndry_normal[normal_component_index] - 1.0) < 5.0e-15
+                    assert all([abs(bndry_normal[d]) < 5.0e-15 for d in range(self._space_dim) if d != normal_component_index])
+                    # compute tangential components
+                    tangential_component_indices = (d for d in range(self._space_dim) if d != normal_component_index)
+                    # construct boundary condition on subspace
+                    for component_index in tangential_component_indices:
+                        bc_object = dlfn.DirichletBC(velocity_space.sub(component_index),
+                                                     self._null_scalar, self._boundary_markers,
+                                                     bndry_id)
+                        self._dirichlet_bcs.append(bc_object)
 
-            elif bc_type is VelocityBCType.constant_component:
-                assert isinstance(value, float)
-                const_function = dlfn.Constant(value)
-                bc_object = dlfn.DirichletBC(velocity_space.sub(component_index),
-                                             const_function,
-                                             self._boundary_markers, bndry_id)
-                self._dirichlet_bcs.append(bc_object)
+                elif bc_type is VelocityBCType.constant:
+                    assert isinstance(value, (tuple, list))
+                    const_function = dlfn.Constant(value)
+                    bc_object = dlfn.DirichletBC(velocity_space, const_function,
+                                                 self._boundary_markers, bndry_id)
+                    self._dirichlet_bcs.append(bc_object)
 
-            elif bc_type is VelocityBCType.function:
-                assert isinstance(value, dlfn.Expression)
-                bc_object = dlfn.DirichletBC(velocity_space, value,
-                                             self._boundary_markers, bndry_id)
-                self._dirichlet_bcs.append(bc_object)
+                elif bc_type is VelocityBCType.constant_component:
+                    assert isinstance(value, float)
+                    const_function = dlfn.Constant(value)
+                    bc_object = dlfn.DirichletBC(velocity_space.sub(component_index),
+                                                 const_function,
+                                                 self._boundary_markers, bndry_id)
+                    self._dirichlet_bcs.append(bc_object)
 
-            elif bc_type is VelocityBCType.function_component:
-                assert isinstance(value, dlfn.Expression)
-                bc_object = dlfn.DirichletBC(velocity_space.sub(component_index),
-                                             value,
-                                             self._boundary_markers, bndry_id)
-                self._dirichlet_bcs.append(bc_object)
+                elif bc_type is VelocityBCType.function:
+                    assert isinstance(value, dlfn.Expression)
+                    bc_object = dlfn.DirichletBC(velocity_space, value,
+                                                 self._boundary_markers, bndry_id)
+                    self._dirichlet_bcs.append(bc_object)
 
-            else:  # pragma: no cover
-                raise RuntimeError()
+                elif bc_type is VelocityBCType.function_component:
+                    assert isinstance(value, dlfn.Expression)
+                    bc_object = dlfn.DirichletBC(velocity_space.sub(component_index),
+                                                 value,
+                                                 self._boundary_markers, bndry_id)
+                    self._dirichlet_bcs.append(bc_object)
+
+                else:  # pragma: no cover
+                    raise RuntimeError()
 
         # velocity part
         pressure_space = self._Wh.sub(self._field_association["pressure"])
@@ -406,7 +577,9 @@ class SolverBase:
 
                 else:  # pragma: no cover
                     raise RuntimeError()
-        # HINT: traction boundary conditions are covered in _setup_problem
+
+            if len(self._dirichlet_bcs) == 0:
+                assert hasattr(self, "_constrained_domain")
 
     @property
     def field_association(self):
@@ -429,6 +602,17 @@ class SolverBase:
             assert len(body_force.ufl_shape) == 1
             assert body_force.ufl_shape[0] == self._space_dim
         self._body_force = body_force
+
+    def set_periodic_boundary_conditions(self, constrained_domain,
+                                         constrained_boundary_ids):
+        """Set constraints due to the periodic boundary conditions of the
+        problem.
+        """
+        assert isinstance(constrained_domain, dlfn.SubDomain)
+        assert isinstance(constrained_boundary_ids, (tuple, list))
+        assert all(isinstance(i, int) for i in constrained_boundary_ids)
+        self._constrained_domain = constrained_domain
+        self._constrained_boundary_ids = constrained_boundary_ids
 
     def set_boundary_conditions(self, bcs, internal_constraints=None):
         """Set the boundary conditions of the problem.
@@ -460,6 +644,8 @@ class SolverBase:
         pressure_bcs = []
         pressure_bc_ids = set()
         for bc in bcs:
+            if hasattr(self, "_constrained_domain"):
+                assert bc[1] not in self._constrained_boundary_ids
             if isinstance(bc[0], VelocityBCType):
                 velocity_bcs.append(bc)
                 velocity_bc_ids.add(bc[1])
@@ -518,7 +704,7 @@ class SolverBase:
 
                 if isinstance(bc[0], VelocityBCType):
                     velocity_constraints.append(bc)
-                elif isinstance(bc[0], TractionBCType):
+                elif isinstance(bc[0], TractionBCType):  # pragma: no cover
                     raise NotImplementedError()
                 elif isinstance(bc[0], PressureBCType):
                     pressure_constraints.append(bc)
@@ -792,7 +978,6 @@ class InstationarySolverBase(SolverBase):
         assert isinstance(next_time, float)
         assert isinstance(current_time, float)
         assert next_time > current_time
-        assert hasattr(self, "_velocity_bcs")
 
         # auxiliary function
         def modify_time(expression, time=next_time):
@@ -803,16 +988,17 @@ class InstationarySolverBase(SolverBase):
                 elif hasattr(expression, "t"):
                     expression.t = next_time
         # velocity boundary conditions
-        for bc in self._velocity_bcs:
-            # unpack values
-            if len(bc) == 3:
-                value = bc[2]
-            elif len(bc) == 4:
-                value = bc[3]
-            else:  # pragma: no cover
-                raise RuntimeError()
-            # modify time
-            modify_time(value)
+        if hasattr(self, "_velocity_bcs"):
+            for bc in self._velocity_bcs:
+                # unpack values
+                if len(bc) == 3:
+                    value = bc[2]
+                elif len(bc) == 4:
+                    value = bc[3]
+                else:  # pragma: no cover
+                    raise RuntimeError()
+                # modify time
+                modify_time(value)
         # pressure boundary conditions
         if hasattr(self, "_pressure_bcs"):
             for bc in self._pressure_bcs:
@@ -882,6 +1068,7 @@ class InstationarySolverBase(SolverBase):
                                                     "_solutions")):
             self._setup_function_spaces()
         # split functions
+        velocity, pressure = self._solutions[0].split()
         old_velocity, old_pressure = self._solutions[1].split()
 
         # velocity part
@@ -899,14 +1086,11 @@ class InstationarySolverBase(SolverBase):
             # type of the entries
             assert all(isinstance(x, float) for x in velocity_condition)
             velocity_expression = dlfn.Constant(velocity_condition)
-
-        # project and assign
-        subspace_index = self._field_association["velocity"]
-        velocity_space = dlfn.FunctionSpace(self._Wh.mesh(),
-                                            self._Wh.sub(subspace_index).ufl_element())
+        velocity_space = self._get_subspace("velocity")
         projected_velocity_condition = dlfn.project(velocity_expression,
                                                     velocity_space)
-        dlfn.assign(old_velocity, projected_velocity_condition)
+        self._assign_function(old_velocity, projected_velocity_condition)
+        self._assign_function(velocity, projected_velocity_condition)
 
         # pressure part
         if "pressure" in initial_conditions:
@@ -920,13 +1104,11 @@ class InstationarySolverBase(SolverBase):
             else:
                 pressure_expression = dlfn.Constant(pressure_condition)
             # project and assign
-            subspace_index = self._field_association["pressure"]
-            pressure_space = dlfn.FunctionSpace(self._Wh.mesh(),
-                                                self._Wh.sub(subspace_index).ufl_element())
+            pressure_space = self._get_subspace("pressure")
             projected_pressure_condition = dlfn.project(pressure_expression,
                                                         pressure_space)
-
-            dlfn.assign(old_pressure, projected_pressure_condition)
+            self._assign_function(old_pressure, projected_pressure_condition)
+            self._assign_function(pressure, projected_pressure_condition)
         # TODO: Implement Poisson equation for the initial pressure
 
     def solve(self):
