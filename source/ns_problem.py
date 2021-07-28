@@ -581,6 +581,7 @@ class InstationaryProblem(ProblemBase):
         self._n_max_steps = n_max_steps
         self._tol = tol
         self._maxiter = maxiter
+        self._adaptive_time_stepping = False
 
         # setting discretization parameters
         # polynomial degree
@@ -593,20 +594,28 @@ class InstationaryProblem(ProblemBase):
         velocity = self._get_velocity()
         degree = velocity.ufl_element().degree()
         assert degree >= 0
-
-        # discontinuous space
-        cell = self._mesh.ufl_cell()
-        elemDG = dlfn.FiniteElement("DG", cell, 0)
-        spaceDG = dlfn.FunctionSpace(self._mesh, elemDG)
         # expression for local CFL number
         h = dlfn.CellDiameter(self._mesh)
         velocity_magnitude = dlfn.sqrt(dlfn.dot(velocity, velocity))
-        cfl_expression = float(degree) * velocity_magnitude * dlfn.Constant(step_size) / h
-        dV = dlfn.Measure("dx", domain=self._mesh)
-        # assemble vector containing local CFL number
-        cfl = dlfn.assemble(cfl_expression * dlfn.TestFunction(spaceDG) * dV)
+        cfl_expression = dlfn.Constant(float(degree)) * velocity_magnitude * dlfn.Constant(step_size) / h
+        # quadrature space
+        cell = self._mesh.ufl_cell()
+        elemQ = dlfn.FiniteElement("DG", cell, degree=degree)
+        VQ = dlfn.FunctionSpace(self._mesh, elemQ)
+        # local projection solver
+        metadata = {"quadrature_degree": 2 * degree, "quadrature_scheme": "default"}
+        dV = dlfn.Measure("dx", self._mesh, metadata=metadata)
+        v = dlfn.TrialFunction(VQ)
+        del_v = dlfn.TestFunction(VQ)
+        lhs = dlfn.inner(v, del_v) * dV
+        rhs = dlfn.inner(cfl_expression, del_v) * dV
+        solver = dlfn.LocalSolver(lhs, rhs)
+        solver.factorize()
+        # solve
+        cfl = dlfn.Function(VQ)
+        solver.solve_local_rhs(cfl)
         # return maximum value
-        max_cfl = dlfn.norm(cfl, "linf")
+        max_cfl = dlfn.norm(cfl.vector(), "linf")
         assert math.isfinite(max_cfl)
         assert max_cfl >= 0.0
         dlfn.info("Current CFL number = {0:6.2e}".format(max_cfl))
@@ -618,6 +627,8 @@ class InstationaryProblem(ProblemBase):
         Class method setting the size of the next time step.
         """
         assert hasattr(self, "_time_stepping")
+        if self._adaptive_time_stepping is False:
+            return
         next_step_size = self._time_stepping.get_next_step_size()
         assert next_step_size > 0.0
         assert math.isfinite(next_step_size)
@@ -770,7 +781,7 @@ class InstationaryProblem(ProblemBase):
         # pass boundary conditions
         self._navier_stokes_solver.set_initial_conditions(self._initial_conditions)
         self._write_xdmf_file(current_time=0.0)
-        
+
         if self._Fr is not None:
             print("Solving problem with Re = {0:.2f} and "
                   "Fr = {1:0.2f} until time = {2:0.2f}"
@@ -792,13 +803,13 @@ class InstationaryProblem(ProblemBase):
             print(self._time_stepping)
             # solve problem
             self._navier_stokes_solver.solve()
-            # advance time
-            self._time_stepping.advance_time()
-            self._navier_stokes_solver.advance_time()
             # postprocess solution
             if self._postprocessing_frequency > 0:
                 if self._time_stepping.step_number % self._postprocessing_frequency == 0:
                     self.postprocess_solution()
+            # advance time
+            self._time_stepping.advance_time()
+            self._navier_stokes_solver.advance_time()
             # write XDMF-files
             if self._output_frequency > 0:
                 if self._time_stepping.step_number % self._output_frequency == 0:

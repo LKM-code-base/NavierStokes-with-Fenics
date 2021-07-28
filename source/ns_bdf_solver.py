@@ -16,7 +16,6 @@ class ImplicitBDFSolver(InstationarySolverBase):
                          time_stepping, tol, max_iter)
 
     def _acceleration_term(self, velocity_solutions, w):
-#        print("ImplicitBDFSolver._acceleration_term")
         # input check
         assert isinstance(velocity_solutions, (list, tuple))
         assert all(isinstance(x, self._form_function_types) for x in velocity_solutions)
@@ -37,7 +36,6 @@ class ImplicitBDFSolver(InstationarySolverBase):
         """Method setting up non-linear solver object of the instationary
         problem.
         """
-        print("ImplicitBDFSolver._setup_problem")
         assert hasattr(self, "_mesh")
         assert hasattr(self, "_boundary_markers")
 
@@ -55,11 +53,12 @@ class ImplicitBDFSolver(InstationarySolverBase):
         (w, q) = dlfn.TestFunctions(self._Wh)
 
         # split solutions
-        _, pressure = dlfn.split(self._solutions[0])
+        velocity, pressure = dlfn.split(self._solutions[0])
         velocity_solutions = []
-        for solution in self._solutions:
-            velocity_solutions.append(dlfn.split(solution)[0])
-        velocity = velocity_solutions[0]
+        velocity_solutions.append(velocity)
+        index = self._field_association["velocity"]
+        for i in range(1, len(self._solutions)):
+            velocity_solutions.append(dlfn.split(self._solutions[i])[index])
 
         # volume element
         dV = dlfn.Measure("dx", domain=self._mesh)
@@ -108,18 +107,16 @@ class ImplicitBDFSolver(InstationarySolverBase):
 
     def _solve_time_step(self):
         """Solves the nonlinear problem for one time step."""
-#        print("ImplicitBDFSolver._solve_time_step")
         # solve problem
         dlfn.info("Starting Newton iteration...")
         self._solver.solve()
 
     def _update_time_stepping_coefficients(self):
         """Update time stepping coefficients ``_alpha`` and ``_next_step_size``."""
-#        print("ImplicitBDFSolver._update_time_stepping_coefficients")
         # update time steps
         next_step_size = self._time_stepping.get_next_step_size()
         if not hasattr(self, "_next_step_size"):
-            self._next_step_size = dlfn.Constant(next_step_size)
+            self._next_step_size = dlfn.Constant(next_step_size, name="dt")
         else:
             self._next_step_size.assign(next_step_size)
 
@@ -127,9 +124,9 @@ class ImplicitBDFSolver(InstationarySolverBase):
         alpha = self._time_stepping.coefficients(derivative=1)
         assert len(alpha) == 3
         if not hasattr(self, "_alpha"):
-            self._alpha = [dlfn.Constant(alpha[0]), dlfn.Constant(alpha[1]),
-                           dlfn.Constant(alpha[2])]
+            self._alpha = [dlfn.Constant(alpha[0], name="alpha00"),
+                           dlfn.Constant(alpha[1], name="alpha01"),
+                           dlfn.Constant(alpha[2], name="alpha02")]
         else:
             for i in range(3):
                 self._alpha[i].assign(alpha[i])
-#        print([float(a.values()) for a in self._alpha])

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import dolfin as dlfn
+import matplotlib.pyplot as plt
 from grid_generator import hyper_cube
 from grid_generator import HyperCubeBoundaryMarkers
 from math import ceil
@@ -13,10 +14,6 @@ dlfn.set_log_level(30)
 
 Re = 100.0
 gamma = 2.0 * dlfn.pi
-
-probes = {}
-for key in ("velocity", "pressure"):
-    probes[key] = np.load(f"probe_{key}.npy")
 
 
 class PeriodicDomain(dlfn.SubDomain):
@@ -52,7 +49,7 @@ class PeriodicDomain(dlfn.SubDomain):
 
 class TaylorGreenVortex(InstationaryProblem):
     def __init__(self, time_step, main_dir=None):
-        end_time = 0.05
+        end_time = 1.0
         n_max_steps = ceil(end_time / time_step)
         super().__init__(main_dir, start_time=0.0, end_time=end_time,
                          desired_start_time_step=time_step, n_max_steps=n_max_steps)
@@ -100,67 +97,46 @@ class TaylorGreenVortex(InstationaryProblem):
                                        HyperCubeBoundaryMarkers.top.value,
                                        HyperCubeBoundaryMarkers.bottom.value)
 
-#    def compute_error(self):
-#        # current time
-#        assert self._time_stepping.is_at_end()
-#        assert self._time_stepping.current_time == self._time_stepping.end_time
-#        current_time = self._time_stepping.current_time
-#        
-#        # get velocity and pressure
-#        velocity = self._get_velocity()
-#        pressure = self._get_pressure()
-#        
-#        # exact solutions
-#        exact_solution = dict()
-#        exact_solution["velocity"] = \
-#            dlfn.Expression(("exp(-2.0 * gamma * gamma / Re * t) * cos(gamma * x[0]) * sin(gamma * x[1])",
-#                             "-exp(-2.0 * gamma * gamma / Re * t) * sin(gamma * x[0]) * cos(gamma * x[1])"),
-#                            gamma=gamma, Re=Re, t=current_time, degree=5)
-#        exact_solution["pressure"] = \
-#        dlfn.Expression("-1.0/4.0 * exp(-4.0 * gamma * gamma / Re * t) * (cos(2.0 * gamma * x[0]) + cos(2.0 * gamma * x[1]))",
-#                        gamma=gamma, Re=Re, t=current_time, degree=5)
-#        errors["velocity"].append(dlfn.errornorm(exact_solution["velocity"], velocity))
-#        errors["pressure"].append(dlfn.errornorm(exact_solution["pressure"], pressure))
-
-    def preprocess_solution(self):
+    def compute_error(self):
+        # current time
+        assert self._time_stepping.is_at_end()
+        assert self._time_stepping.current_time == self._time_stepping.end_time
+        current_time = self._time_stepping.current_time
+        
         # get velocity and pressure
         velocity = self._get_velocity()
         pressure = self._get_pressure()
         
-        print("velocity(x = 0.1, y = 0.1) = ", velocity(0.1, 0.1))
-        print("velocity reference value at (x = 0.1, y = 0.1) = ",
-              probes["velocity"][0])
-        print("velocity difference at (x = 0.1, y = 0.1) = ",
-              np.linalg.norm(velocity(0.1, 0.1) - probes["velocity"][0]))
-        print("pressure(x = 0.1, y = 0.1) = ", pressure(0.1, 0.1))
-        print("pressure reference value at (x = 0.1, y = 0.1) = ",
-              probes["pressure"][0])
-        print("pressure difference at (x = 0.1, y = 0.1) = ",
-              pressure(0.1, 0.1) - probes["pressure"][0])
+        # exact solutions
+        exact_solution = dict()
+        exact_solution["velocity"] = \
+            dlfn.Expression(("exp(-2.0 * gamma * gamma / Re * t) * cos(gamma * x[0]) * sin(gamma * x[1])",
+                             "-exp(-2.0 * gamma * gamma / Re * t) * sin(gamma * x[0]) * cos(gamma * x[1])"),
+                            gamma=gamma, Re=Re, t=current_time, degree=3)
+        exact_solution["pressure"] = \
+        dlfn.Expression("-1.0/4.0 * exp(-4.0 * gamma * gamma / Re * t) * (cos(2.0 * gamma * x[0]) + cos(2.0 * gamma * x[1]))",
+                        gamma=gamma, Re=Re, t=current_time, degree=3)
+        errors["velocity"].append(dlfn.errornorm(exact_solution["velocity"], velocity))
+        errors["pressure"].append(dlfn.errornorm(exact_solution["pressure"], pressure))
 
-    
-    def postprocess_solution(self):
-        # get velocity and pressure
-        velocity = self._get_velocity()
-        pressure = self._get_pressure()
-        
-        step_number = self._time_stepping.step_number
-        print("velocity(x = 0.1, y = 0.1) = ", velocity(0.1, 0.1))
-        print("velocity difference at (x = 0.1, y = 0.1) = ",
-              np.linalg.norm(velocity(0.1, 0.1) - probes["velocity"][step_number+1]))
-        print("pressure(x = 0.1, y = 0.1) = ", pressure(0.1, 0.1))
-        print("pressure difference at (x = 0.1, y = 0.1) = ",
-              pressure(0.1, 0.1) - probes["pressure"][step_number+1])
 
 if __name__ == "__main__":
     errors = {"pressure": [], "velocity": []}
-    initial_time_step = 1e-2
+    initial_time_step = 1.0
     time_step_reduction_factor = 0.5
-    n_levels = 1
+    n_levels = 6
+    time_step_sizes = np.zeros((n_levels, ))
     for i in range(n_levels):
         time_step = initial_time_step * time_step_reduction_factor**i
+        time_step_sizes[i] = time_step
         taylor_green = TaylorGreenVortex(time_step )
-        taylor_green.n_points = 64
+        taylor_green.n_points = 128
         taylor_green.solve_problem()
-#        taylor_green.compute_error()
+        taylor_green.compute_error()
         print(errors)
+    for key in errors:
+        plt.figure()
+        plt.loglog(time_step_sizes, errors[key], "x-")
+        plt.grid(which="both")
+        plt.savefig(f"convergence_{ key }.pdf", dpi=600)
+        plt.loglog(time_step_sizes, errors["velocity"], "x-")

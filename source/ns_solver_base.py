@@ -39,12 +39,20 @@ class TractionBCType(Enum):
 class WeakFormConvectiveTerm(Enum):
     """
     The weak form of the convective term used according to John (2016),
-    pgs. 307-308
+    pgs. 307-308.
     """
     standard_form = auto()
     rotational_form = auto()
     divergence_form = auto()
     skew_symmetric_form = auto()
+
+
+class WeakFormViscousTerm(Enum):
+    """
+    The weak form of the viscous term.
+    """
+    reduced_form = auto()
+    traction_form = auto()
 
 
 class SolverBase:
@@ -56,15 +64,15 @@ class SolverBase:
     ----------
     """
     # class variables
-    _null_scalar = dlfn.Constant(0.)
-    _one_half = dlfn.Constant(0.5)
+    _null_scalar = dlfn.Constant(0., name="null")
+    _one_half = dlfn.Constant(0.5, name="one_half")
     _form_function_types = (dlfn.function.function.Function, ufl.tensors.ListTensor, ufl.indexed.Indexed)
     _form_trial_function_types = (dlfn.function.argument.Argument, ufl.tensors.ListTensor)
     _sub_space_association = {0: "velocity", 1: "pressure"}
     _field_association = {value: key for key, value in _sub_space_association.items()}
 
-    def __init__(self, mesh, boundary_markers, form_convective_term="standard"):
-
+    def __init__(self, mesh, boundary_markers, form_convective_term="standard",
+                 form_viscous_term="reduced"):
         # input check
         assert isinstance(mesh, dlfn.Mesh)
         assert isinstance(boundary_markers, (dlfn.cpp.mesh.MeshFunctionSizet,
@@ -72,6 +80,9 @@ class SolverBase:
         assert isinstance(form_convective_term, str)
         assert form_convective_term.lower() in ("standard", "rotational",
                                                 "divergence", "skew_symmetric")
+        assert isinstance(form_viscous_term, str)
+        assert form_viscous_term.lower() in ("standard", "reduced", "traction")
+
         # set mesh variables
         self._mesh = mesh
         self._boundary_markers = boundary_markers
@@ -91,6 +102,13 @@ class SolverBase:
             self._form_convective_term = WeakFormConvectiveTerm.divergence_form
         elif form_convective_term.lower() == "skew_symmetric":
             self._form_convective_term = WeakFormConvectiveTerm.skew_symmetric_form
+
+        if form_viscous_term.lower() == "standard":
+            self._form_viscous_term = WeakFormViscousTerm.reduced_form
+        elif form_viscous_term.lower() == "reduced":
+            self._form_viscous_term = WeakFormViscousTerm.reduced_form
+        elif form_viscous_term.lower() == "traction":
+            self._form_viscous_term = WeakFormViscousTerm.traction_form
 
         # set discretization parameters
         # polynomial degree
@@ -311,7 +329,7 @@ class SolverBase:
         assert isinstance(u, self._form_function_types), "{0}".format(type(u))
         assert isinstance(v, self._form_function_types), "{0}".format(type(v))
 
-        return inner(div(u), v)
+        return div(u) * v
 
     def _get_subspace(self, field):
         """Returns the subspace of the `field`."""
@@ -389,12 +407,6 @@ class SolverBase:
                 self._forward_subspace_assigners[key] = \
                     dlfn.FunctionAssigner(receiving_space, assigning_space)
         return self._forward_subspace_assigners
-
-    def _viscous_term(self, u, v):
-        assert isinstance(u, self._form_function_types)
-        assert isinstance(v, self._form_function_types)
-
-        return self._one_half * inner(grad(u) + grad(u).T, grad(v) + grad(v).T)
 
     def _picard_linerization_convective_term(self, u, v, w):
         assert isinstance(u, self._form_function_types)
@@ -563,7 +575,11 @@ class SolverBase:
     def _viscous_term(self, u, v):
         assert isinstance(u, self._form_function_types)
         assert isinstance(v, self._form_function_types)
-        return self._one_half * inner(grad(u) + grad(u).T, grad(v) + grad(v).T)
+        if self._form_viscous_term is WeakFormViscousTerm.traction_form:
+            return inner((grad(u) + grad(u).T),
+                         self._one_half * (grad(v) + grad(v).T))
+        elif self._form_viscous_term is WeakFormViscousTerm.reduced_form:
+            return inner(grad(u), grad(v))
 
     @property
     def field_association(self):
@@ -586,6 +602,7 @@ class SolverBase:
             assert len(body_force.ufl_shape) == 1
             assert body_force.ufl_shape[0] == self._space_dim
         self._body_force = body_force
+        self._body_force.rename("body_force", "")
 
     def set_periodic_boundary_conditions(self, constrained_domain,
                                          constrained_boundary_ids):
@@ -701,6 +718,7 @@ class SolverBase:
         self._velocity_bcs = velocity_bcs
         if len(traction_bcs) > 0:
             self._traction_bcs = traction_bcs
+            self._form_viscous_term = WeakFormViscousTerm.traction_form
         if len(pressure_bcs) > 0:
             self._pressure_bcs = pressure_bcs
 
@@ -718,14 +736,14 @@ class SolverBase:
         """
         assert isinstance(Re, float) and Re > 0.0
         if not hasattr(self, "_Re"):
-            self._Re = dlfn.Constant(Re)
+            self._Re = dlfn.Constant(Re, name="Re")
         else:
             self._Re.assign(Re)
 
         if Fr is not None:
             assert isinstance(Fr, float) and Fr > 0.0
             if not hasattr(self, "_Fr"):
-                self._Fr = dlfn.Constant(Fr)
+                self._Fr = dlfn.Constant(Fr, name="Fr")
             else:
                 self._Fr.assign(Fr)
 
@@ -900,14 +918,17 @@ class InstationarySolverBase(SolverBase):
     def _advance_solution(self):
         """Advance solution objects in time."""
         assert hasattr(self, "_solutions")
-        for i in range(len(self._solutions) - 1):
-            self._solutions[i+1].assign(self._solutions[i])
+        for i in range(len(self._solutions), 1, -1):
+            self._solutions[i-1].assign(self._solutions[i-2])
 
     def _setup_function_spaces(self):
         """Class method setting up function spaces."""
         super()._setup_function_spaces()
         # create solution
-        self._solutions = [dlfn.Function(self._Wh) for _ in range(self._time_stepping.n_levels() + 1)]
+        self._solutions = []
+        for i in range(self._time_stepping.n_levels() + 1):
+            name = i * "old" + (i > 0) * "_" + "solution"
+            self._solutions.append(dlfn.Function(self._Wh, name=name))
 
     def _setup_problem(self):  # pragma: no cover
         """
@@ -1075,7 +1096,6 @@ class InstationarySolverBase(SolverBase):
         # perform one time
         self._solve_time_step()
 
-
         if hasattr(self, "_mean_pressure_value"):
             _, pressure = self.solution.split()
             # compute mean value
@@ -1088,7 +1108,7 @@ class InstationarySolverBase(SolverBase):
             # project modified pressure
             pressure_space = self._get_subspace("pressure")
             corrected_pressure = dlfn.project(modified_pressure, pressure_space)
-            self._assign_function(self.solution,
+            self._assign_function(pressure,
                                   {"pressure": corrected_pressure})
 
     @property
