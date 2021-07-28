@@ -39,12 +39,20 @@ class TractionBCType(Enum):
 class WeakFormConvectiveTerm(Enum):
     """
     The weak form of the convective term used according to John (2016),
-    pgs. 307-308
+    pgs. 307-308.
     """
     standard_form = auto()
     rotational_form = auto()
     divergence_form = auto()
     skew_symmetric_form = auto()
+
+
+class WeakFormViscousTerm(Enum):
+    """
+    The weak form of the viscous term.
+    """
+    reduced_form = auto()
+    traction_form = auto()
 
 
 class SolverBase:
@@ -56,15 +64,15 @@ class SolverBase:
     ----------
     """
     # class variables
-    _null_scalar = dlfn.Constant(0.)
-    _one_half = dlfn.Constant(0.5)
+    _null_scalar = dlfn.Constant(0., name="null")
+    _one_half = dlfn.Constant(0.5, name="one_half")
     _form_function_types = (dlfn.function.function.Function, ufl.tensors.ListTensor, ufl.indexed.Indexed)
     _form_trial_function_types = (dlfn.function.argument.Argument, ufl.tensors.ListTensor)
     _sub_space_association = {0: "velocity", 1: "pressure"}
     _field_association = {value: key for key, value in _sub_space_association.items()}
 
-    def __init__(self, mesh, boundary_markers, form_convective_term="standard"):
-
+    def __init__(self, mesh, boundary_markers, form_convective_term="standard",
+                 form_viscous_term="reduced"):
         # input check
         assert isinstance(mesh, dlfn.Mesh)
         assert isinstance(boundary_markers, (dlfn.cpp.mesh.MeshFunctionSizet,
@@ -72,6 +80,9 @@ class SolverBase:
         assert isinstance(form_convective_term, str)
         assert form_convective_term.lower() in ("standard", "rotational",
                                                 "divergence", "skew_symmetric")
+        assert isinstance(form_viscous_term, str)
+        assert form_viscous_term.lower() in ("standard", "reduced", "traction")
+
         # set mesh variables
         self._mesh = mesh
         self._boundary_markers = boundary_markers
@@ -92,13 +103,16 @@ class SolverBase:
         elif form_convective_term.lower() == "skew_symmetric":
             self._form_convective_term = WeakFormConvectiveTerm.skew_symmetric_form
 
+        if form_viscous_term.lower() == "standard":
+            self._form_viscous_term = WeakFormViscousTerm.reduced_form
+        elif form_viscous_term.lower() == "reduced":
+            self._form_viscous_term = WeakFormViscousTerm.reduced_form
+        elif form_viscous_term.lower() == "traction":
+            self._form_viscous_term = WeakFormViscousTerm.traction_form
+
         # set discretization parameters
         # polynomial degree
         self._p_deg = 1
-
-        # quadrature degree
-        q_deg = self._p_deg + 2
-        dlfn.parameters["form_compiler"]["quadrature_degree"] = q_deg
 
     def _add_boundary_tractions(self, F, w):
         """Method adding boundary traction terms to the weak form"""
@@ -245,18 +259,20 @@ class SolverBase:
         else:
             rank = 1
         # 2. check boundary id
-        assert isinstance(bc[1], int)
-        if internal_constraint:
-            facet_id_found = False
-            for f in dlfn.facets(self._mesh):
-                if self._boundary_markers[f] == bc[1]:
-                    facet_id_found = True
-                    break
-            assert facet_id_found
-
+        if bc[0] is PressureBCType.mean_value:
+            pass
         else:
-            assert bc[1] in all_bndry_ids, "Boundary id {0} ".format(bc[1]) +\
-                                           "was not found in the boundary markers."
+            assert isinstance(bc[1], int)
+            if internal_constraint:
+                facet_id_found = False
+                for f in dlfn.facets(self._mesh):
+                    if self._boundary_markers[f] == bc[1]:
+                        facet_id_found = True
+                        break
+                assert facet_id_found
+            else:
+                assert bc[1] in all_bndry_ids, "Boundary id {0} ".format(bc[1]) +\
+                                               "was not found in the boundary markers."
         # 3. check value type
         # distinguish between scalar and vector field
         if rank == 0:
@@ -313,7 +329,7 @@ class SolverBase:
         assert isinstance(u, self._form_function_types), "{0}".format(type(u))
         assert isinstance(v, self._form_function_types), "{0}".format(type(v))
 
-        return inner(div(u), v)
+        return div(u) * v
 
     def _get_subspace(self, field):
         """Returns the subspace of the `field`."""
@@ -392,12 +408,6 @@ class SolverBase:
                     dlfn.FunctionAssigner(receiving_space, assigning_space)
         return self._forward_subspace_assigners
 
-    def _viscous_term(self, u, v):
-        assert isinstance(u, self._form_function_types)
-        assert isinstance(v, self._form_function_types)
-
-        return self._one_half * inner(grad(u) + grad(u).T, grad(v) + grad(v).T)
-
     @staticmethod
     def modify_time(expression, time):
         # modify time
@@ -448,7 +458,7 @@ class SolverBase:
         self._n_dofs = self._Wh.dim()
 
         assert hasattr(self, "_n_cells")
-        dlfn.info("Number of cells {0}, number of DoFs: {1}".format(self._n_cells, self._n_dofs))
+        print("Number of cells {0}, number of DoFs: {1}".format(self._n_cells, self._n_dofs))
 
     def _setup_boundary_conditions(self):
         assert hasattr(self, "_Wh")
@@ -538,7 +548,7 @@ class SolverBase:
                 else:  # pragma: no cover
                     raise RuntimeError()
 
-        # velocity part
+        # pressure part
         pressure_space = self._Wh.sub(self._field_association["pressure"])
         if hasattr(self, "_pressure_bcs"):
             for bc in self._pressure_bcs:
@@ -561,11 +571,24 @@ class SolverBase:
                                                  self._boundary_markers, bndry_id)
                     self._dirichlet_bcs.append(bc_object)
 
+                elif bc_type is PressureBCType.mean_value:
+                    assert bndry_id is None
+                    assert isinstance(value, float)
+                    self._mean_pressure_value = value
                 else:  # pragma: no cover
                     raise RuntimeError()
 
             if len(self._dirichlet_bcs) == 0:
                 assert hasattr(self, "_constrained_domain")
+
+    def _viscous_term(self, u, v):
+        assert isinstance(u, self._form_function_types)
+        assert isinstance(v, self._form_function_types)
+        if self._form_viscous_term is WeakFormViscousTerm.traction_form:
+            return inner((grad(u) + grad(u).T),
+                         self._one_half * (grad(v) + grad(v).T))
+        elif self._form_viscous_term is WeakFormViscousTerm.reduced_form:
+            return inner(grad(u), grad(v))
 
     @property
     def field_association(self):
@@ -588,6 +611,7 @@ class SolverBase:
             assert len(body_force.ufl_shape) == 1
             assert body_force.ufl_shape[0] == self._space_dim
         self._body_force = body_force
+        self._body_force.rename("body_force", "")
 
     def set_periodic_boundary_conditions(self, constrained_domain,
                                          constrained_boundary_ids):
@@ -642,7 +666,8 @@ class SolverBase:
                 pressure_bcs.append(bc)
                 pressure_bc_ids.add(bc[1])
         # check that at least one velocity bc is specified
-        assert len(velocity_bcs) > 0
+        if not hasattr(self, "_constrained_domain"):
+            assert len(velocity_bcs) > 0
 
         # check that there is no conflict between velocity and traction bcs
         if len(traction_bcs) > 0:
@@ -702,6 +727,7 @@ class SolverBase:
         self._velocity_bcs = velocity_bcs
         if len(traction_bcs) > 0:
             self._traction_bcs = traction_bcs
+            self._form_viscous_term = WeakFormViscousTerm.traction_form
         if len(pressure_bcs) > 0:
             self._pressure_bcs = pressure_bcs
 
@@ -719,14 +745,14 @@ class SolverBase:
         """
         assert isinstance(Re, float) and Re > 0.0
         if not hasattr(self, "_Re"):
-            self._Re = dlfn.Constant(Re)
+            self._Re = dlfn.Constant(Re, name="Re")
         else:
             self._Re.assign(Re)
 
         if Fr is not None:
             assert isinstance(Fr, float) and Fr > 0.0
             if not hasattr(self, "_Fr"):
-                self._Fr = dlfn.Constant(Fr)
+                self._Fr = dlfn.Constant(Fr, name="Fr")
             else:
                 self._Fr.assign(Fr)
 
@@ -901,14 +927,17 @@ class InstationarySolverBase(SolverBase):
     def _advance_solution(self):
         """Advance solution objects in time."""
         assert hasattr(self, "_solutions")
-        for i in range(len(self._solutions) - 1):
-            self._solutions[i+1].assign(self._solutions[i])
+        for i in range(len(self._solutions), 1, -1):
+            self._solutions[i-1].assign(self._solutions[i-2])
 
     def _setup_function_spaces(self):
         """Class method setting up function spaces."""
         super()._setup_function_spaces()
         # create solution
-        self._solutions = [dlfn.Function(self._Wh) for _ in range(self._time_stepping.n_levels() + 1)]
+        self._solutions = []
+        for i in range(self._time_stepping.n_levels() + 1):
+            name = i * "old" + (i > 0) * "_" + "solution"
+            self._solutions.append(dlfn.Function(self._Wh, name=name))
 
     def _setup_problem(self):  # pragma: no cover
         """
@@ -1067,6 +1096,21 @@ class InstationarySolverBase(SolverBase):
 
         # perform one time
         self._solve_time_step()
+
+        if hasattr(self, "_mean_pressure_value"):
+            _, pressure = self.solution.split()
+            # compute mean value
+            dV = dlfn.Measure("dx", domain=self._mesh)
+            mean_pressure_value = dlfn.assemble(pressure * dV) / dlfn.assemble(dlfn.Constant(1.0) * dV)
+            # compute pressure shift
+            pressure_shift = dlfn.Constant(mean_pressure_value - self._mean_pressure_value)
+            # define modified pressure
+            modified_pressure = pressure - pressure_shift
+            # project modified pressure
+            pressure_space = self._get_subspace("pressure")
+            corrected_pressure = dlfn.project(modified_pressure, pressure_space)
+            self._assign_function(pressure,
+                                  {"pressure": corrected_pressure})
 
     @property
     def solution(self):
