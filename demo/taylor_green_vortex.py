@@ -22,7 +22,7 @@ class TaylorGreenVortex(InstationaryProblem):
         self.set_parameters(Re=Re)
 
         self._n_points = 50
-        self._output_frequency = 10
+        self._output_frequency = 1
         self._postprocessing_frequency = 10
 
         self.set_solver_class(ImplicitBDFSolver)
@@ -35,8 +35,8 @@ class TaylorGreenVortex(InstationaryProblem):
         self._initial_conditions = dict()
         self._initial_conditions["velocity"] = \
             dlfn.Expression(("cos(gamma * x[0]) * sin(gamma * x[1])",
-                             "-sin(gamma * x[0]) * cos(gamma * x[1])"), gamma=gamma,
-                            degree=3)
+                             "-sin(gamma * x[0]) * cos(gamma * x[1])"),
+                            gamma=gamma, degree=3)
         self._initial_conditions["pressure"] = \
             dlfn.Expression("-1.0/4.0 * (cos(2.0 * gamma * x[0]) + cos(2.0 * gamma * x[1]))",
                             gamma=gamma, degree=3)
@@ -76,12 +76,6 @@ class TaylorGreenVortex(InstationaryProblem):
         self._periodic_bcs = PeriodicDomain()
         self._periodic_boundary_ids = (HyperCubeBoundaryMarkers.left.value,
                                        HyperCubeBoundaryMarkers.right.value)
-
-    def postprocess_solution(self):
-        # add pressure gradient to the field output
-        self._add_to_field_output(self._compute_pressure_gradient())
-        # add vorticity to the field output
-        self._add_to_field_output(self._compute_vorticity())
 
 
 if __name__ == "__main__":
