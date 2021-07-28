@@ -2,7 +2,6 @@ import dolfin as dlfn
 from ns_problem import InstationaryProblem
 from ns_problem import VelocityBCType
 from ns_ipcs_solver import IPCSSolver
-from ns_bdf_solver import ImplicitBDFSolver
 from grid_generator import hyper_rectangle
 from grid_generator import HyperRectangleBoundaryMarkers
 
@@ -21,8 +20,6 @@ class ChannelFlowProblem(InstationaryProblem):
 
         self._output_frequency = 10
         self._postprocessing_frequency = 10
-
-        #self.set_solver_class(ImplicitBDFSolver)
         self.set_solver_class(IPCSSolver)
 
     def setup_mesh(self):
@@ -33,7 +30,7 @@ class ChannelFlowProblem(InstationaryProblem):
     def set_initial_conditions(self):
         self._initial_conditions = dict()
         self._initial_conditions["velocity"] = (1.0, 1.0)
-        #self._initial_conditions["pressure"] = (1.0)
+        # self._initial_conditions["pressure"] = (1.0)
 
     def set_boundary_conditions(self):
         # velocity boundary conditions
@@ -48,12 +45,12 @@ class ChannelFlowProblem(InstationaryProblem):
         self._add_to_field_output(self._compute_pressure_gradient())
         # add vorticity to the field output
         self._add_to_field_output(self._compute_vorticity())
-        
-        
+
+
 def test_channel_flow():
     channel_flow = ChannelFlowProblem(10)
     channel_flow.solve_problem()
 
-    
+
 if __name__ == "__main__":
     test_channel_flow()
