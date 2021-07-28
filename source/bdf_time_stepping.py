@@ -14,7 +14,7 @@ class BDFTimeStepping(DiscreteTime):
 
         assert isinstance(order, int)
         assert order > 0
-        if order > 2:
+        if order > 2:  # pragma: no cover
             raise NotImplementedError()
         self._order = order
 
