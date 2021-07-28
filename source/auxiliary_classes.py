@@ -39,7 +39,7 @@ class CustomNonlinearProblem(NonlinearProblem):
 
     def get_form(self, key):
         form = self.forms.get(key)
-        if form is None:
+        if form is None:  # pragma: no cover
             raise AttributeError("Form '%s' requested by NonlinearProblem not "
                                  "available" % key)
         return form

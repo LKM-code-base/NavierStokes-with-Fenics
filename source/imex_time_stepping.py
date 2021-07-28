@@ -31,7 +31,7 @@ class IMEXTimeStepping(DiscreteTime):
             self._imex_parameters = (0.5, 1.0/8.0)
         elif self._type == IMEXType.CNLF:
             self._imex_parameters = (0.0, 1.0)
-        else:
+        else:  # pragma: no cover
             raise ValueError("Type of IMEX Scheme {0} is unknown.".format(self._type))
 
         self._coefficients_changed = True
@@ -62,7 +62,7 @@ class IMEXTimeStepping(DiscreteTime):
             self._imex_parameters = (0.5, 1.0/8.0)
         elif self._type == IMEXType.CNLF:
             self._imex_parameters = (0.0, 1.0)
-        else:
+        else:  # pragma: no cover
             raise ValueError("Type of IMEX Scheme {0} is unknown.".format(self._type))
 
         self._coefficients_changed = True
