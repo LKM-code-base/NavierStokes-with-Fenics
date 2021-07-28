@@ -5,6 +5,7 @@ from ns_problem import StationaryProblem
 from ns_solver_base import VelocityBCType
 from ns_solver_base import PressureBCType
 from ns_solver_base import TractionBCType
+from grid_generator import blasius_plate
 from grid_generator import hyper_cube
 from grid_generator import hyper_rectangle
 from grid_generator import open_hyper_cube
@@ -95,6 +96,7 @@ class GravityDrivenFlowProblem(StationaryProblem):
 
 
 class CouetteProblem(StationaryProblem):
+    """Couette flow problem with periodic boundary conditions in x-direction."""
     def __init__(self, n_points, main_dir=None):
         super().__init__(main_dir)
 
@@ -112,6 +114,27 @@ class CouetteProblem(StationaryProblem):
         self._bcs = ((VelocityBCType.no_slip, HyperCubeBoundaryMarkers.bottom.value, None),
                      (TractionBCType.constant_component, HyperCubeBoundaryMarkers.top.value, 0, 1.0),
                      (VelocityBCType.no_normal_flux, HyperCubeBoundaryMarkers.top.value, None))
+
+    def set_periodic_boundary_conditions(self):
+        """Set periodic boundary condition in x-direction."""
+        class PeriodicDomain(dlfn.SubDomain):
+            def inside(self, x, on_boundary):
+                """Return True if `x` is located on the master edge and False
+                else.
+                """
+                return (dlfn.near(x[0], 0.0) and on_boundary)
+
+            def map(self, x_slave, x_master):
+                """Map the coordinates of the support points (nodes) of the degrees
+                of freedom of the slave to the coordinates of the corresponding
+                master edge.
+                """
+                x_master[0] = x_slave[0] - 1.0
+                x_master[1] = x_slave[1]
+
+        self._periodic_bcs = PeriodicDomain()
+        self._periodic_boundary_ids = (HyperCubeBoundaryMarkers.left.value,
+                                       HyperCubeBoundaryMarkers.right.value)
 
 
 class ChannelFlowProblem(StationaryProblem):
@@ -193,14 +216,42 @@ class ChannelFlowProblem(StationaryProblem):
         self._add_to_field_output(self._compute_vorticity())
 
 
+class BlasiusFlowProblem(StationaryProblem):
+    def __init__(self, main_dir=None):
+        super().__init__(main_dir)
+        self._problem_name = "BlasiusFlow"
+        self.set_parameters(Re=200.0)
+
+    def setup_mesh(self):
+        # create mesh
+        self._mesh, self._boundary_markers, self._boundary_marker_map = blasius_plate()
+
+    def set_boundary_conditions(self):
+        # velocity boundary conditions
+        inlet_velocity = dlfn.Expression(("1.0", "0.0"),
+                                         h=0.5, y0=0.5, degree=2)
+        self._bcs = ((VelocityBCType.function, self._boundary_marker_map["inlet"], inlet_velocity),
+                     (VelocityBCType.no_normal_flux, self._boundary_marker_map["bottom"], None),
+                     (VelocityBCType.no_normal_flux, self._boundary_marker_map["top"], None))
+
+    def set_internal_constraints(self):
+        self._internal_constraints = ((VelocityBCType.no_slip, self._boundary_marker_map["plate"], None), )
+
+    def postprocess_solution(self):
+        # add pressure gradient to the field output
+        self._add_to_field_output(self._compute_pressure_gradient())
+        # add vorticity to the field output
+        self._add_to_field_output(self._compute_vorticity())
+
+
+def test_blasius_flow():
+    blasius_flow = BlasiusFlowProblem()
+    blasius_flow.solve_problem()
+
+
 def test_cavity():
     cavity_flow = CavityProblem(25)
     cavity_flow.solve_problem()
-
-
-def test_gravity_driven_flow():
-    gravity_flow = GravityDrivenFlowProblem(25)
-    gravity_flow.solve_problem()
 
 
 def test_channel_flow():
@@ -216,11 +267,19 @@ def test_channel_flow_convective_term():
 
 
 def test_couette_flow():
-    couette_flow = CouetteProblem(25)
+    couette_flow = CouetteProblem(10)
     couette_flow.solve_problem()
 
 
+def test_gravity_driven_flow():
+    gravity_flow = GravityDrivenFlowProblem(25)
+    gravity_flow.solve_problem()
+
+
 if __name__ == "__main__":
+    test_blasius_flow()
     test_cavity()
-    test_gravity_driven_flow()
+    test_channel_flow()
+    test_channel_flow_convective_term()
     test_couette_flow()
+    test_gravity_driven_flow()

@@ -37,5 +37,5 @@ class BlasiusFlowProblem(StationaryProblem):
 
 
 if __name__ == "__main__":
-    gravity_flow = BlasiusFlowProblem()
-    gravity_flow.solve_problem()
+    blasius_flow = BlasiusFlowProblem()
+    blasius_flow.solve_problem()

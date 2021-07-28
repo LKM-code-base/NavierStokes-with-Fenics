@@ -55,6 +55,7 @@ dependencies:
   - libstdcxx-ng=9.3.0=h6de172a_19
   - libuv=1.41.0=h7f98852_0
   - lz4-c=1.9.3=h9c3ff4c_0
+  - meshio
   - metis=5.1.0=h58526e2_1006
   - more-itertools=8.7.0=pyhd3eb1b0_0
   - mpc=1.1.0=h04dde30_1009
