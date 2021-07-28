@@ -20,7 +20,7 @@ class ProblemBase:
         # set write and read directory
         if main_dir is None:
             self._main_dir = os.getcwd()
-        else:
+        else:  # pragma: no cover
             assert isinstance(main_dir, str)
             assert path.exist(main_dir)
             self._main_dir = main_dir
@@ -247,6 +247,7 @@ class ProblemBase:
         for index, name in solver.sub_space_association.items():
             solution_components[index].rename(name, "")
             self._xdmf_file.write(solution_components[index], current_time)
+
         if hasattr(self, "_additional_field_output"):
             for field in self._additional_field_output:
                 self._xdmf_file.write(field, current_time)
@@ -361,9 +362,6 @@ class StationaryProblem(ProblemBase):
         # setting discretization parameters
         # polynomial degree
         self._p_deg = 1
-        # quadrature degree
-        q_deg = self._p_deg + 2
-        dlfn.parameters["form_compiler"]["quadrature_degree"] = q_deg
 
     def _get_filename(self):
         """
@@ -583,13 +581,11 @@ class InstationaryProblem(ProblemBase):
         self._n_max_steps = n_max_steps
         self._tol = tol
         self._maxiter = maxiter
+        self._adaptive_time_stepping = False
 
         # setting discretization parameters
         # polynomial degree
         self._p_deg = 1
-        # quadrature degree
-        q_deg = self._p_deg + 2
-        dlfn.parameters["form_compiler"]["quadrature_degree"] = q_deg
 
     def _compute_cfl_number(self, step_size):
         """
@@ -598,20 +594,28 @@ class InstationaryProblem(ProblemBase):
         velocity = self._get_velocity()
         degree = velocity.ufl_element().degree()
         assert degree >= 0
-
-        # discontinuous space
-        cell = self._mesh.ufl_cell()
-        elemDG = dlfn.FiniteElement("DG", cell, 0)
-        spaceDG = dlfn.FunctionSpace(self._mesh, elemDG)
         # expression for local CFL number
         h = dlfn.CellDiameter(self._mesh)
         velocity_magnitude = dlfn.sqrt(dlfn.dot(velocity, velocity))
-        cfl_expression = float(degree) * velocity_magnitude * dlfn.Constant(step_size) / h
-        dV = dlfn.Measure("dx", domain=self._mesh)
-        # assemble vector containing local CFL number
-        cfl = dlfn.assemble(cfl_expression * dlfn.TestFunction(spaceDG) * dV)
+        cfl_expression = dlfn.Constant(float(degree)) * velocity_magnitude * dlfn.Constant(step_size) / h
+        # quadrature space
+        cell = self._mesh.ufl_cell()
+        elemQ = dlfn.FiniteElement("DG", cell, degree=degree)
+        VQ = dlfn.FunctionSpace(self._mesh, elemQ)
+        # local projection solver
+        metadata = {"quadrature_degree": 2 * degree, "quadrature_scheme": "default"}
+        dV = dlfn.Measure("dx", self._mesh, metadata=metadata)
+        v = dlfn.TrialFunction(VQ)
+        del_v = dlfn.TestFunction(VQ)
+        lhs = dlfn.inner(v, del_v) * dV
+        rhs = dlfn.inner(cfl_expression, del_v) * dV
+        solver = dlfn.LocalSolver(lhs, rhs)
+        solver.factorize()
+        # solve
+        cfl = dlfn.Function(VQ)
+        solver.solve_local_rhs(cfl)
         # return maximum value
-        max_cfl = dlfn.norm(cfl, "linf")
+        max_cfl = dlfn.norm(cfl.vector(), "linf")
         assert math.isfinite(max_cfl)
         assert max_cfl >= 0.0
         dlfn.info("Current CFL number = {0:6.2e}".format(max_cfl))
@@ -626,11 +630,13 @@ class InstationaryProblem(ProblemBase):
         next_step_size = self._time_stepping.get_next_step_size()
         assert next_step_size > 0.0
         assert math.isfinite(next_step_size)
-
         cfl = self._compute_cfl_number(next_step_size)
         if cfl > 1.0:
             next_step_size /= cfl
-            self._time_stepping.set_desired_next_step_size(next_step_size)
+            if self._adaptive_time_stepping is False:
+                return
+            else:  # pragma: no cover
+                self._time_stepping.set_desired_next_step_size(next_step_size)
 
     def _get_filename(self):
         """
@@ -777,18 +783,18 @@ class InstationaryProblem(ProblemBase):
         self._write_xdmf_file(current_time=0.0)
 
         if self._Fr is not None:
-            dlfn.info("Solving problem with Re = {0:.2f} and "
-                      "Fr = {1:0.2f} until time = {2:0.2f}"
-                      .format(self._Re, self._Fr, self._time_stepping.end_time))
+            print("Solving problem with Re = {0:.2f} and "
+                  "Fr = {1:0.2f} until time = {2:0.2f}"
+                  .format(self._Re, self._Fr, self._time_stepping.end_time))
         else:
-            dlfn.info("Solving problem with Re = {0:.2f} and "
-                      "until time = {1:0.2f}"
-                      .format(self._Re, self._time_stepping.end_time))
+            print("Solving problem with Re = {0:.2f} and "
+                  "until time = {1:0.2f}"
+                  .format(self._Re, self._time_stepping.end_time))
         # time loop
         assert hasattr(self, "_postprocessing_frequency")
         assert hasattr(self, "_output_frequency")
         while not self._time_stepping.is_at_end() and \
-                self._time_stepping.step_number <= self._n_max_steps:
+                self._time_stepping.step_number < self._n_max_steps:
             # set next step size
             self._set_next_step_size()
             # update coefficients
@@ -797,14 +803,15 @@ class InstationaryProblem(ProblemBase):
             print(self._time_stepping)
             # solve problem
             self._navier_stokes_solver.solve()
-            # advance time
-            self._time_stepping.advance_time()
-            self._navier_stokes_solver.advance_time()
             # postprocess solution
             if self._postprocessing_frequency > 0:
                 if self._time_stepping.step_number % self._postprocessing_frequency == 0:
                     self.postprocess_solution()
+            # advance time
+            self._time_stepping.advance_time()
+            self._navier_stokes_solver.advance_time()
             # write XDMF-files
             if self._output_frequency > 0:
                 if self._time_stepping.step_number % self._output_frequency == 0:
                     self._write_xdmf_file(current_time=self._time_stepping.current_time)
+        print(self._time_stepping)
