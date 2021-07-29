@@ -29,6 +29,19 @@ def test_equation_coefficients():
     _ = eq01.Fr
     _ = eq01.Ek
     _ = eq01.Ro
+    eq02.clear()
+
+    eq03 = EquationCoefficientHandler()
+    print(eq02)
+    eq03.Ek = 1.0
+    _ = eq02.equation_coefficients
+    print(eq02)
+    eq03.Re = 25.0
+    _ = eq02.equation_coefficients
+    print(eq02)
+    eq03.modify_dimensionless_number("Re", 10.0)
+    print(eq03.get_file_suffix())    
+
 
 if __name__ == "__main__":
     test_equation_coefficients()

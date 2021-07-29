@@ -282,7 +282,7 @@ class ProblemBase:
         """
         pass
 
-    def set_equation_coefficients(self):
+    def set_equation_coefficients(self):  # pragma: no cover
         """
         Sets up the dimensionless parameters of the model by creating an
         ``EquationCoefficientHandler`` object.
@@ -467,13 +467,13 @@ class StationaryProblem(ProblemBase):
         dlfn.info("Solving problem with parameter continuation...")  # pragma: no cover
 
         # mixed logarithmic-linear spacing
-        finalRe = self._coefficient_handler.Re
-        assert finalRe is not None
+        finalRe = self._coefficient_handler.Re  # pragma: no cover
+        assert finalRe is not None  # pragma: no cover
         logRange = np.logspace(np.log10(10.0), np.log10(finalRe),
                                  num=8, endpoint=True)  # pragma: no cover
         linRange = np.linspace(logRange[-2], finalRe,
                                  num=8, endpoint=True)  # pragma: no cover
-        finalRange = np.concatenate((logRange[:-2], linRange))
+        finalRange = np.concatenate((logRange[:-2], linRange))  # pragma: no cover
         for Re in finalRange:  # pragma: no cover
             # modify dimensionless numbers
             self._coefficient_handler.modify_dimensionless_number("Re", Re)

@@ -336,7 +336,7 @@ class SolverBase:
             if self._space_dim == 2:
                 curl_u = curl(u)
                 return self._equation_coefficients["convective_term"] * dot(dlfn.as_vector([-curl_u * u[1], curl_u * u[0]]), v)
-            elif self._space_dim == 3:
+            elif self._space_dim == 3:  # pragma: no cover
                 return self._equation_coefficients["convective_term"] * dot(cross(curl(u), u), v)
         elif self._form_convective_term is WeakFormConvectiveTerm.divergence_form:
             return self._equation_coefficients["convective_term"] * \
@@ -445,7 +445,7 @@ class SolverBase:
             if self._space_dim == 2:
                 curl_u = curl(u)
                 return self._equation_coefficients["convective_term"] * dot(dlfn.as_vector([-curl_u * v[1], curl_u * v[0]]), w)
-            elif self._space_dim == 3:
+            elif self._space_dim == 3:  # pragma: no cover
                 return self._equation_coefficients["convective_term"] * dot(cross(curl(u), v), w)
         elif self._form_convective_term is WeakFormConvectiveTerm.divergence_form:
             return self._equation_coefficients["convective_term"] * \
@@ -770,10 +770,10 @@ class SolverBase:
                     self._equation_coefficients[key] = dlfn.Constant(value)
                 else:
                     self._equation_coefficients[key] = None
-            for key in possible_keys:
+            for key in possible_keys:  # pragma: no cover
                 if key not in self._equation_coefficients:
                     self._equation_coefficients[key] = None
-        else:
+        else:  # pragma: no cover
             for key, value in self._equation_coefficients.items():
                 assert key in input_coefficients
                 desired_value = input_coefficients[key]
