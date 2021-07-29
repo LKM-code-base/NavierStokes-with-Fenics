@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import dolfin as dlfn
+from auxiliary_classes import EquationCoefficientHandler
 from grid_generator import channel_with_cylinder
 from ns_bdf_solver import ImplicitBDFSolver
 from ns_problem import InstationaryProblem
@@ -14,14 +15,9 @@ class DFGBenchmark2D2(InstationaryProblem):
     def __init__(self, main_dir=None):
         super().__init__(main_dir, start_time=0.0, end_time=80.0,
                          desired_start_time_step=0.005, n_max_steps=16000)
-
         self._problem_name = "DFGBenchmark2D2"
-
-        self.set_parameters(Re=100.0)
-
         self._output_frequency = 50
         self._postprocessing_frequency = 50
-
         self.set_solver_class(ImplicitBDFSolver)
 
     def setup_mesh(self):
@@ -41,6 +37,9 @@ class DFGBenchmark2D2(InstationaryProblem):
                      (VelocityBCType.no_slip, self._boundary_marker_map["cylinder"], None),
                      (VelocityBCType.no_slip, self._boundary_marker_map["upper wall"], None),
                      (VelocityBCType.no_slip, self._boundary_marker_map["lower wall"], None))
+
+    def set_equation_coefficients(self):
+        self._coefficient_handler = EquationCoefficientHandler(Re=100.0)
 
     def postprocess_solution(self):
         # get pressure, velocity

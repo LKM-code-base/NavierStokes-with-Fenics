@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import dolfin as dlfn
+from auxiliary_classes import EquationCoefficientHandler
 from ns_problem import InstationaryProblem
 from ns_solver_base import VelocityBCType
 from ns_solver_base import PressureBCType
@@ -50,21 +51,19 @@ class ChannelFlowProblem(InstationaryProblem):
     def __init__(self, n_points, main_dir=None):
         super().__init__(main_dir, start_time=0.0, end_time=1.0,
                          desired_start_time_step=0.01, n_max_steps=10)
-
         self._n_points = n_points
         self._problem_name = "ChannelFlow"
-
-        self.set_parameters(Re=10.0)
-
         self._output_frequency = 10
         self._postprocessing_frequency = 10
-
         self.set_solver_class(ImplicitBDFSolver)
 
     def setup_mesh(self):
         # create mesh
         self._mesh, self._boundary_markers = hyper_rectangle((0.0, 0.0), (10.0, 1.0),
                                                              (10 * self._n_points, self._n_points))
+
+    def set_equation_coefficients(self):
+        self._coefficient_handler = EquationCoefficientHandler(Re=10.0)
 
     def set_initial_conditions(self):
         self._initial_conditions = dict()
@@ -89,15 +88,10 @@ class GravityDrivenFlowProblem(InstationaryProblem):
     def __init__(self, n_points, main_dir=None):
         super().__init__(main_dir, start_time=0.0, end_time=1.0,
                          desired_start_time_step=0.01, n_max_steps=10)
-
         self._n_points = n_points
         self._problem_name = "OpenCubeTransient"
-
-        self.set_parameters(Re=100.0, Fr=1.0)
-
         self._output_frequency = 10
         self._postprocessing_frequency = 10
-
         self.set_solver_class(ImplicitBDFSolver)
 
     def setup_mesh(self):
@@ -108,6 +102,9 @@ class GravityDrivenFlowProblem(InstationaryProblem):
                     ("bottom", (0.7, 0.0), 0.05),
                     ("top", (0.5, 1.0), 0.8))
         self._mesh, self._boundary_markers = open_hyper_cube(2, self._n_points, openings)
+
+    def set_equation_coefficients(self):
+        self._coefficient_handler = EquationCoefficientHandler(Re=100.0, Fr=1.0)
 
     def set_initial_conditions(self):
         self._initial_conditions = dict()
@@ -133,13 +130,11 @@ class GravityDrivenFlowProblem(InstationaryProblem):
 
 class TaylorGreenVortex(InstationaryProblem):
     _gamma = gamma = 2.0 * dlfn.pi
-    _Re = 100.0
 
     def __init__(self, main_dir=None):
         super().__init__(main_dir, start_time=0.0, end_time=1.0,
                          desired_start_time_step=0.1, n_max_steps=10)
         self._problem_name = "TaylorGreenVortex"
-        self.set_parameters(Re=self._Re)
         self._n_points = 16
         self._output_frequency = 0
         self._postprocessing_frequency = 0
@@ -149,6 +144,9 @@ class TaylorGreenVortex(InstationaryProblem):
         assert self._n_points is not None
         # create mesh
         self._mesh, self._boundary_markers = hyper_cube(2, self._n_points)
+
+    def set_equation_coefficients(self):
+        self._coefficient_handler = EquationCoefficientHandler(Re=100.0)
 
     def set_initial_conditions(self):
         self._initial_conditions = dict()

@@ -62,41 +62,23 @@ class ImplicitBDFSolver(InstationarySolverBase):
 
         # volume element
         dV = dlfn.Measure("dx", domain=self._mesh)
-
-        # dimensionless parameters
-        assert hasattr(self, "_Re")
-        Re = self._Re
-
         # weak forms
         # mass balance
         F_mass = -self._divergence_term(velocity, q) * dV
-
         # momentum balance
-        F_momentum = (
-                        self._acceleration_term(velocity_solutions, w)
-                        + self._convective_term(velocity, w)
-                        - self._divergence_term(w, pressure)
-                        + self._viscous_term(velocity, w) / Re
-                        ) * dV
-
+        F_momentum = (self._acceleration_term(velocity_solutions, w)
+                      + self._convective_term(velocity, w)
+                      - self._divergence_term(w, pressure)
+                      + self._viscous_term(velocity, w)
+                      ) * dV
         # add boundary tractions
         F_momentum = self._add_boundary_tractions(F_momentum, w)
-
         # add body force term
-        if hasattr(self, "_body_force"):
-            assert hasattr(self, "_Fr"), "Froude number is not specified."
-            F_momentum -= dlfn.dot(self._body_force, w) / self._Fr**2 * dV
-            
-        # add coriolis force term
-        if hasattr(self, "_Omega"):
-            assert hasattr(self, "_Ro"), "Rossby number is not specified."
-            F_momentum += self._coriolis_term(velocity, w) / self._Ro * dV
-            
-        # add euler force term
-        if hasattr(self, "_Alpha"):
-            assert hasattr(self, "_Ro"), "Rossby number is not specified."
-            x = dlfn.SpatialCoordinate(self._mesh)
-            F_momentum += self._euler_term(x, w) / self._Ro * dV
+        F_momentum = self._add_body_forces(F_momentum, w)
+        # add Coriolis acceleration
+        F_momentum = self._add_coriolis_acceleration(F_momentum, velocity, w)
+        # add Euler acceleration
+        F_momentum = self._add_euler_acceleration(F_momentum, w)
 
         # joint weak form
         self._F = F_mass + F_momentum

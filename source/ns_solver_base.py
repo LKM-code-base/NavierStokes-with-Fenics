@@ -3,6 +3,7 @@
 from auxiliary_classes import CustomNonlinearProblem
 from auxiliary_methods import boundary_normal
 from auxiliary_methods import extract_all_boundary_markers
+from auxiliary_classes import AngularVelocityVector
 import dolfin as dlfn
 from dolfin import cross, curl, div, dot, grad, inner
 from discrete_time import DiscreteTime
@@ -150,6 +151,61 @@ class SolverBase:
                     assert isinstance(traction, dlfn.Expression)
                     F += traction * w[component_index] * dA(bndry_id)
         return F
+
+    def _add_body_forces(self, F, w):
+        if not hasattr(self, "_body_force"):
+            return F
+        # input check
+        assert hasattr(self, "_equation_coefficients")
+        if self._equation_coefficients["body_force_term"] is None:  # pragma: no cover
+            raise RuntimeError()
+        assert isinstance(F, ufl.form.Form)
+        assert isinstance(w, self._form_trial_function_types)
+
+        dV = dlfn.Measure("dx", domain=self._mesh)
+        F -= self._equation_coefficients["body_force_term"] * dlfn.dot(self._body_force, w) * dV
+
+        return F
+
+    def _add_coriolis_acceleration(self, F, velocity, w):
+        if not hasattr(self, "_angular_velocity"):
+            return F
+        # input check
+        assert hasattr(self, "_equation_coefficients")
+        if self._equation_coefficients["coriolis_term"] is None:  # pragma: no cover
+            raise RuntimeError()
+        assert isinstance(velocity, self._form_function_types)
+        assert isinstance(w, self._form_function_types)
+        omega = self._angular_velocity.value
+        dV = dlfn.Measure("dx", domain=self._mesh)
+        if self._space_dim == 2:
+            F += dlfn.Constant(2.0) * self._equation_coefficients["coriolis_term"] * omega * \
+                    dot(dlfn.as_vector((-velocity[1], velocity[0])), w) * dV
+        else:
+            assert len(self._Omega) == 3
+            F += dlfn.Constant(2.0) * self._equation_coefficients["coriolis_term"] * \
+                    dot(dlfn.cross(omega, velocity), w) * dV
+        return F
+
+    def _add_euler_acceleration(self, F, w):
+        if not hasattr(self, "_angular_velocity"):
+            return F
+        # input check
+        assert hasattr(self, "_equation_coefficients")
+        if self._equation_coefficients["euler_term"] is None:  # pragma: no cover
+            raise RuntimeError()
+        assert isinstance(w, self._form_function_types)
+        alpha = self._angular_velocity.derivative
+        if alpha is None:
+            return F
+        else:
+            x = dlfn.SpatialCoordinate(self._mesh)
+            dV = dlfn.Measure("dx", domain=self._mesh)
+            if self._space_dim == 2:
+                F += self._equation_coefficients["euler_term"] * dot(alpha * dlfn.as_vector((-x[1], x[0])), w) * dV
+            else:
+                F += self._equation_coefficients["euler_term"] * dot(dlfn.cross(alpha, x), w) * dV
+            return F
 
     def _assign_function(self, receiving_functions, assigning_functions):
         """Assign functions from the joint function space to the subspaces or
@@ -309,27 +365,35 @@ class SolverBase:
                     assert bc[3].value_rank() == 0
 
     def _convective_term(self, u, v):
+        assert hasattr(self, "_equation_coefficients")
+        if self._equation_coefficients["convective_term"] is None:  # pragma: no cover
+            raise RuntimeError()
         assert isinstance(u, self._form_function_types)
         assert isinstance(v, self._form_function_types)
 
         if self._form_convective_term is WeakFormConvectiveTerm.standard_form:
-            return dot(dot(grad(u), u), v)
+            return self._equation_coefficients["convective_term"] * dot(dot(grad(u), u), v)
         elif self._form_convective_term is WeakFormConvectiveTerm.rotational_form:
             if self._space_dim == 2:
                 curl_u = curl(u)
-                return dot(dlfn.as_vector([-curl_u * u[1], curl_u * u[0]]), v)
-            elif self._space_dim == 3:
-                return dot(cross(curl(u), u), v)
+                return self._equation_coefficients["convective_term"] * dot(dlfn.as_vector([-curl_u * u[1], curl_u * u[0]]), v)
+            elif self._space_dim == 3:  # pragma: no cover
+                return self._equation_coefficients["convective_term"] * dot(cross(curl(u), u), v)
         elif self._form_convective_term is WeakFormConvectiveTerm.divergence_form:
-            return dot(dot(grad(u), u), v) + self._one_half * dot(div(u) * u, v)
+            return self._equation_coefficients["convective_term"] * \
+                    (dot(dot(grad(u), u), v) + self._one_half * dot(div(u) * u, v))
         elif self._form_convective_term is WeakFormConvectiveTerm.skew_symmetric_form:
-            return self._one_half * (dot(dot(grad(u), u), v) - dot(dot(grad(v), u), u))
+            return self._equation_coefficients["convective_term"] * \
+                    self._one_half * (dot(dot(grad(u), u), v) - dot(dot(grad(v), u), u))
 
     def _divergence_term(self, u, v):
+        assert hasattr(self, "_equation_coefficients")
+        if self._equation_coefficients["pressure_term"] is None:  # pragma: no cover
+            raise RuntimeError()
         assert isinstance(u, self._form_function_types), "{0}".format(type(u))
         assert isinstance(v, self._form_function_types), "{0}".format(type(v))
 
-        return div(u) * v
+        return self._equation_coefficients["pressure_term"] * div(u) * v
 
     def _get_subspace(self, field):
         """Returns the subspace of the `field`."""
@@ -408,46 +472,27 @@ class SolverBase:
                     dlfn.FunctionAssigner(receiving_space, assigning_space)
         return self._forward_subspace_assigners
 
-    def _coriolis_term(self, u, v):
-        assert isinstance(u, self._form_function_types)
-        assert isinstance(v, self._form_function_types)
-        
-        assert isinstance(self._Omega, dlfn.Constant)
-        if self._mesh.geometry().dim() == 2:
-            assert len(self._Omega.ufl_shape) == 0
-            return dot(dlfn.Constant(2) * dlfn.as_vector((-self._Omega * u[1], self._Omega * u[0])), v)  
-        else:
-            assert len(self._Omega) == 3
-            return dot(dlfn.Constant(2) * dlfn.cross(self._Omega, u), v)
-    
-    def _euler_term(self,x, v):
-        assert isinstance(v, self._form_function_types)
-        
-        assert isinstance(self._Alpha, dlfn.Constant)
-        if self._mesh.geometry().dim() == 2:
-            assert len(self._Alpha.ufl_shape) == 0
-            return dot(dlfn.as_vector((-self._Alpha * x[1], self._Alpha * x[0])), v)  
-        else:
-            assert len(self._Alpha) == 3
-            return dot(dlfn.cross(self._Alpha, dlfn.SpatialCoordinate(self._mesh)), v)
-
     def _picard_linerization_convective_term(self, u, v, w):
+        assert hasattr(self, "_equation_coefficients")
+        if self._equation_coefficients["convective_term"] is None:  # pragma: no cover
+            raise RuntimeError()
         assert isinstance(u, self._form_function_types)
         assert isinstance(v, self._form_trial_function_types)
         assert isinstance(w, self._form_trial_function_types)
 
         if self._form_convective_term is WeakFormConvectiveTerm.standard_form:
-            return dot(dot(grad(v), u), w)
+            return self._equation_coefficients["convective_term"] * dot(dot(grad(v), u), w)
         elif self._form_convective_term is WeakFormConvectiveTerm.rotational_form:
             if self._space_dim == 2:
                 curl_u = curl(u)
-                return dot(dlfn.as_vector([-curl_u * v[1], curl_u * v[0]]), w)
-            elif self._space_dim == 3:
-                return dot(cross(curl(u), v), w)
+                return self._equation_coefficients["convective_term"] * dot(dlfn.as_vector([-curl_u * v[1], curl_u * v[0]]), w)
+            elif self._space_dim == 3:  # pragma: no cover
+                return self._equation_coefficients["convective_term"] * dot(cross(curl(u), v), w)
         elif self._form_convective_term is WeakFormConvectiveTerm.divergence_form:
-            return dot(dot(grad(v), u), w) + self._one_half * dot(div(u) * v, w)
+            return self._equation_coefficients["convective_term"] * \
+                    (dot(dot(grad(v), u), w) + self._one_half * dot(div(u) * v, w))
         elif self._form_convective_term is WeakFormConvectiveTerm.skew_symmetric_form:
-            return self._one_half * (dot(dot(grad(v), u), w) - dot(dot(grad(w), u), v))
+            return self._equation_coefficients["convective_term"] * self._one_half * (dot(dot(grad(v), u), w) - dot(dot(grad(w), u), v))
 
     def _setup_function_spaces(self):
         """
@@ -596,18 +641,35 @@ class SolverBase:
                 assert hasattr(self, "_constrained_domain")
 
     def _viscous_term(self, u, v):
+        assert hasattr(self, "_equation_coefficients")
+        if self._equation_coefficients["viscous_term"] is None:  # pragma: no cover
+            raise RuntimeError()
         assert isinstance(u, self._form_function_types)
         assert isinstance(v, self._form_function_types)
+
         if self._form_viscous_term is WeakFormViscousTerm.traction_form:
-            return inner((grad(u) + grad(u).T),
-                         self._one_half * (grad(v) + grad(v).T))
+            return self._equation_coefficients["viscous_term"] * \
+                    inner((grad(u) + grad(u).T), self._one_half * (grad(v) + grad(v).T))
         elif self._form_viscous_term is WeakFormViscousTerm.reduced_form:
-            return inner(grad(u), grad(v))
+            return self._equation_coefficients["viscous_term"] * inner(grad(u), grad(v))
 
     @property
     def field_association(self):
         assert hasattr(self, "_field_association")
         return self._field_association
+
+    def set_angular_velocity(self, angular_velocity):
+        """
+        Specifies the body force.
+
+        Parameters
+        ----------
+        body_force : auxiliary_classes.AngularVelocityVector
+            The angular velocity vector.
+        """
+        assert isinstance(angular_velocity, AngularVelocityVector)
+        assert angular_velocity.space_dim == self._space_dim
+        self._angular_velocity = angular_velocity
 
     def set_body_force(self, body_force):
         """
@@ -745,57 +807,33 @@ class SolverBase:
         if len(pressure_bcs) > 0:
             self._pressure_bcs = pressure_bcs
 
-    def set_dimensionless_numbers(self, Re=1.0, Fr=None, Ro=None, Omega=None, Alpha=None):
-        """
-        Updates the parameters of the model by creating or modifying class
-        objects.
+    def set_equation_coefficients(self, input_coefficients):
+        assert isinstance(input_coefficients, dict)
+        possible_keys = ("convective_term", "coriolis_term", "euler_term",
+                         "pressure_term", "viscous_term", "body_force_term")
+        for key in input_coefficients.keys():
+            assert key in possible_keys
+        if not hasattr(self, "_equation_coefficients"):
+            self._equation_coefficients = dict()
 
-        Parameters
-        ----------
-        Re : float
-            Kinetic Reynolds numbers.
-        Fr : float
-            Froude number.
-        Ro : float
-            Rossby number.
-        Omega : dlfn.Constant
-            Angular velocity
-        Alpha : dlfn.Constant
-            Angular acceleration
-        """
-        assert isinstance(Re, float) and Re > 0.0
-        if not hasattr(self, "_Re"):
-            self._Re = dlfn.Constant(Re, name="Re")
-        else:
-            self._Re.assign(Re)
-
-        if Fr is not None:
-            assert isinstance(Fr, float) and Fr > 0.0
-            if not hasattr(self, "_Fr"):
-                self._Fr = dlfn.Constant(Fr, name="Fr")
-            else:
-                self._Fr.assign(Fr)
-                
-        if Ro is not None:
-            assert isinstance(Ro, float) and Ro > 0.0
-            if not hasattr(self, "_Ro"):
-                self._Ro = dlfn.Constant(Ro)
-            else:
-                self._Ro.assign(Ro)
-                
-        if Omega is not None:
-            assert isinstance(Omega, dlfn.Constant)
-            if not hasattr(self, "_Omega"):
-                self._Omega = dlfn.Constant(Omega)
-            else:
-                self._Omega.assign(Omega)
-                
-        if Alpha is not None:
-            assert isinstance(Alpha, dlfn.Constant)
-            if not hasattr(self, "_Alpha"):
-                self._Alpha = dlfn.Constant(Alpha)
-            else:
-                self._Alpha.assign(Alpha)
+            for key, value in input_coefficients.items():
+                if value is not None:
+                    assert isinstance(value, float)
+                    assert math.isfinite(value)
+                    assert value > 0.0
+                    self._equation_coefficients[key] = dlfn.Constant(value)
+                else:
+                    self._equation_coefficients[key] = None
+            for key in possible_keys:  # pragma: no cover
+                if key not in self._equation_coefficients:
+                    self._equation_coefficients[key] = None
+        else:  # pragma: no cover
+            for key, value in self._equation_coefficients.items():
+                assert key in input_coefficients
+                desired_value = input_coefficients[key]
+                if value is not None:
+                    assert desired_value is not None
+                    value.assign(desired_value)
 
     @property
     def sub_space_association(self):
@@ -840,52 +878,32 @@ class StationarySolverBase(SolverBase):
         """
         assert hasattr(self, "_mesh")
         assert hasattr(self, "_boundary_markers")
-
+        assert hasattr(self, "_equation_coefficients")
         self._setup_function_spaces()
         self._setup_boundary_conditions()
-
         # creating test and trial functions
         (v, p) = dlfn.TrialFunctions(self._Wh)
         (w, q) = dlfn.TestFunctions(self._Wh)
-
         # solution
         self._solution = dlfn.Function(self._Wh)
         sol_v, sol_p = dlfn.split(self._solution)
-
         # volume element
         dV = dlfn.Measure("dx", domain=self._mesh)
-
-        # dimensionless parameters
-        assert hasattr(self, "_Re")
-        Re = self._Re
-
         # weak forms
         # mass balance
         F_mass = -self._divergence_term(sol_v, q) * dV
-
         # momentum balance
         F_momentum = (self._convective_term(sol_v, w)
                       - self._divergence_term(w, sol_p)
-                      + (1. / Re) * self._viscous_term(sol_v, w)) * dV
-
+                      + self._viscous_term(sol_v, w)) * dV
         # add boundary tractions
         F_momentum = self._add_boundary_tractions(F_momentum, w)
-
         # add body force term
-        if hasattr(self, "_body_force"):
-            assert hasattr(self, "_Fr"), "Froude number is not specified."
-            F_momentum -= dot(self._body_force, w) / self._Fr**2 * dV
-            
-        # add coriolis force term
-        if hasattr(self, "_Omega") and self._Omega is not None:
-            assert hasattr(self, "_Ro"), "Rossby number is not specified."
-            F_momentum += self._coriolis_term(sol_v, w) / self._Ro * dV
-            
-        # add euler force term
-        if hasattr(self, "_Alpha") and self._Alpha is not None:
-            assert hasattr(self, "_Ro"), "Rossby number is not specified."
-            x = dlfn.SpatialCoordinate(self._mesh)
-            F_momentum += self._euler_term(x, w) / self._Ro * dV
+        F_momentum = self._add_body_forces(F_momentum, w)
+        # add Coriolis acceleration
+        F_momentum = self._add_coriolis_acceleration(F_momentum, sol_v, w)
+        # add Euler acceleration
+        F_momentum = self._add_euler_acceleration(F_momentum, w)
 
         self._F = F_mass + F_momentum
 
@@ -893,23 +911,19 @@ class StationarySolverBase(SolverBase):
         J_picard_mass = -self._divergence_term(v, q) * dV
         J_picard_momentum = (self._picard_linerization_convective_term(sol_v, v, w)
                              - self._divergence_term(w, p)
-                             + (1. / Re) * self._viscous_term(v, w)) * dV
+                             + self._viscous_term(v, w)) * dV
         self._J_picard = J_picard_mass + J_picard_momentum
-
         # linearization using Newton's method
         self._J_newton = dlfn.derivative(self._F, self._solution)
-
         # setup non-linear solver
         linear_solver = dlfn.PETScLUSolver()
         comm = dlfn.MPI.comm_world
         factory = dlfn.PETScFactory.instance()
         self._nonlinear_solver = dlfn.NewtonSolver(comm, linear_solver, factory)
-
         # setup problem with Picard linearization
         self._picard_problem = CustomNonlinearProblem(self._F,
                                                       self._dirichlet_bcs,
                                                       self._J_picard)
-
         # setup problem with Newton linearization
         self._newton_problem = CustomNonlinearProblem(self._F,
                                                       self._dirichlet_bcs,
