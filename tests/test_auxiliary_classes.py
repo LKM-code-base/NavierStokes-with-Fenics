@@ -34,11 +34,11 @@ def test_equation_coefficients():
     eq03 = EquationCoefficientHandler()
     print(eq02)
     eq03.Ek = 1.0
-    _ = eq02.equation_coefficients
-    print(eq02)
+    _ = eq03.equation_coefficients
+    print(eq03)
     eq03.Re = 25.0
-    _ = eq02.equation_coefficients
-    print(eq02)
+    _ = eq03.equation_coefficients
+    print(eq03)
     eq03.modify_dimensionless_number("Re", 10.0)
     print(eq03.get_file_suffix())    
 
