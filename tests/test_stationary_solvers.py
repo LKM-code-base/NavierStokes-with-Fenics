@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import dolfin as dlfn
+from auxiliary_classes import EquationCoefficientHandler
 from ns_problem import StationaryProblem
 from ns_solver_base import VelocityBCType
 from ns_solver_base import PressureBCType
@@ -14,6 +15,20 @@ from grid_generator import HyperRectangleBoundaryMarkers
 
 dlfn.set_log_level(20)
 
+class PeriodicDomain(dlfn.SubDomain):
+    def inside(self, x, on_boundary):
+        """Return True if `x` is located on the master edge and False
+        else.
+        """
+        return (dlfn.near(x[0], 0.0) and on_boundary)
+
+    def map(self, x_slave, x_master):
+        """Map the coordinates of the support points (nodes) of the degrees
+        of freedom of the slave to the coordinates of the corresponding
+        master edge.
+        """
+        x_master[0] = x_slave[0] - 1.0
+        x_master[1] = x_slave[1]
 
 class CavityProblem(StationaryProblem):
     def __init__(self, n_points, main_dir=None):
@@ -21,8 +36,6 @@ class CavityProblem(StationaryProblem):
 
         self._n_points = n_points
         self._problem_name = "Cavity"
-
-        self.set_parameters(Re=10.0)
 
     def setup_mesh(self):
         # create mesh
@@ -35,6 +48,8 @@ class CavityProblem(StationaryProblem):
                      (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.bottom.value, None),
                      (VelocityBCType.constant, HyperCubeBoundaryMarkers.top.value, (1.0, 0.0)))
 
+    def set_equation_coefficients(self):
+        self._coefficient_handler = EquationCoefficientHandler(Re=10.0)
 
 class GravityDrivenFlowProblem(StationaryProblem):
     def __init__(self, n_points, main_dir=None):
@@ -42,8 +57,6 @@ class GravityDrivenFlowProblem(StationaryProblem):
 
         self._n_points = n_points
         self._problem_name = "OpenCube"
-
-        self.set_parameters(Re=200.0, Fr=10.0)
 
     def setup_mesh(self):
         # create mesh
@@ -62,6 +75,9 @@ class GravityDrivenFlowProblem(StationaryProblem):
                      (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.bottom.value, None),
                      (VelocityBCType.no_slip, HyperCubeBoundaryMarkers.top.value, None))
 
+    def set_equation_coefficients(self):
+        self._coefficient_handler = EquationCoefficientHandler(Re=200.0, Fr=10.0)
+
     def postprocess_solution(self):
         pressure = self._get_pressure()
         velocity = self._get_velocity()
@@ -71,7 +87,7 @@ class GravityDrivenFlowProblem(StationaryProblem):
         potential_energy = dlfn.dot(self._body_force, position_vector)
         # compute Bernoulli potential
         Phi = dlfn.Constant(0.5) * dlfn.dot(velocity, velocity)
-        Phi += pressure + potential_energy / dlfn.Constant(self._Fr)**2
+        Phi += pressure + potential_energy / dlfn.Constant(self._coefficient_handler.Fr)**2
         # project on Bernoulli potential on the mesh
         Vh = dlfn.FunctionSpace(self._mesh, "CG", 1)
         phi = dlfn.project(Phi, Vh)
@@ -103,8 +119,6 @@ class CouetteProblem(StationaryProblem):
         self._n_points = n_points
         self._problem_name = "Couette"
 
-        self.set_parameters(Re=1.0)
-
     def setup_mesh(self):
         # create mesh
         self._mesh, self._boundary_markers = hyper_cube(2, self._n_points)
@@ -115,23 +129,11 @@ class CouetteProblem(StationaryProblem):
                      (TractionBCType.constant_component, HyperCubeBoundaryMarkers.top.value, 0, 1.0),
                      (VelocityBCType.no_normal_flux, HyperCubeBoundaryMarkers.top.value, None))
 
+    def set_equation_coefficients(self):
+        self._coefficient_handler = EquationCoefficientHandler(Re=1.0)
+
     def set_periodic_boundary_conditions(self):
         """Set periodic boundary condition in x-direction."""
-        class PeriodicDomain(dlfn.SubDomain):
-            def inside(self, x, on_boundary):
-                """Return True if `x` is located on the master edge and False
-                else.
-                """
-                return (dlfn.near(x[0], 0.0) and on_boundary)
-
-            def map(self, x_slave, x_master):
-                """Map the coordinates of the support points (nodes) of the degrees
-                of freedom of the slave to the coordinates of the corresponding
-                master edge.
-                """
-                x_master[0] = x_slave[0] - 1.0
-                x_master[1] = x_slave[1]
-
         self._periodic_bcs = PeriodicDomain()
         self._periodic_boundary_ids = (HyperCubeBoundaryMarkers.left.value,
                                        HyperCubeBoundaryMarkers.right.value)
@@ -149,8 +151,6 @@ class ChannelFlowProblem(StationaryProblem):
         assert isinstance(bc_type, str)
         assert bc_type in ("inlet", "pressure_gradient", "inlet_pressure", "inlet_component")
         self._bc_type = bc_type
-
-        self.set_parameters(Re=1.0)
 
         if self._bc_type == "inlet":
             self._problem_name = "ChannelFlowInlet"
@@ -208,6 +208,9 @@ class ChannelFlowProblem(StationaryProblem):
             self._bcs.append((VelocityBCType.no_slip, Markers.top.value, None))
             # pressure at the outlet (as a constant)
             self._bcs.append((PressureBCType.constant, Markers.right.value, 0.0))
+    
+    def set_equation_coefficients(self):
+        self._coefficient_handler = EquationCoefficientHandler(Re=1.0)
 
     def postprocess_solution(self):
         # add pressure gradient to the field output
@@ -220,7 +223,6 @@ class BlasiusFlowProblem(StationaryProblem):
     def __init__(self, main_dir=None):
         super().__init__(main_dir)
         self._problem_name = "BlasiusFlow"
-        self.set_parameters(Re=200.0)
 
     def setup_mesh(self):
         # create mesh
@@ -233,6 +235,9 @@ class BlasiusFlowProblem(StationaryProblem):
         self._bcs = ((VelocityBCType.function, self._boundary_marker_map["inlet"], inlet_velocity),
                      (VelocityBCType.no_normal_flux, self._boundary_marker_map["bottom"], None),
                      (VelocityBCType.no_normal_flux, self._boundary_marker_map["top"], None))
+
+    def set_equation_coefficients(self):
+        self._coefficient_handler = EquationCoefficientHandler(Re=200.0)
 
     def set_internal_constraints(self):
         self._internal_constraints = ((VelocityBCType.no_slip, self._boundary_marker_map["plate"], None), )
@@ -250,7 +255,7 @@ def test_blasius_flow():
 
 
 def test_cavity():
-    cavity_flow = CavityProblem(25)
+    cavity_flow = CavityProblem(10)
     cavity_flow.solve_problem()
 
 
@@ -272,7 +277,7 @@ def test_couette_flow():
 
 
 def test_gravity_driven_flow():
-    gravity_flow = GravityDrivenFlowProblem(25)
+    gravity_flow = GravityDrivenFlowProblem(50)
     gravity_flow.solve_problem()
 
 
