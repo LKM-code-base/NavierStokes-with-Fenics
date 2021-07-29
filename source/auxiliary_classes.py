@@ -4,7 +4,7 @@ from dolfin import NonlinearProblem
 from dolfin import SystemAssembler
 import math
 
-__all__ = ["CustomNonlinearProblem", "EquationCoefficients"]
+__all__ = ["CustomNonlinearProblem", "EquationCoefficientHandler"]
 
 
 class CustomNonlinearProblem(NonlinearProblem):
@@ -54,13 +54,14 @@ class CustomNonlinearProblem(NonlinearProblem):
         self.assembler.assemble(A)
 
 
-class EquationCoefficients():
+class EquationCoefficientHandler():
     def __init__(self, **kwargs):
         self._dimensionless_numbers = dict()
         self._read_dimensionless_number(kwargs, "Re", "Reynolds")
         self._read_dimensionless_number(kwargs, "Fr", "Froude")
         self._read_dimensionless_number(kwargs, "Ro", "Rossby")
         self._read_dimensionless_number(kwargs, "Ek", "Ekman")
+        self._closed = False
 
     def __str__(self):
         assert hasattr(self, "_dimensionless_numbers")
@@ -143,7 +144,7 @@ class EquationCoefficients():
         if not hasattr(self, "_equation_coefficients"):
             self._equation_coefficients = dict()
         self._equation_coefficients["convective_term"] = 1.0
-        print(self._dimensionless_numbers)
+
         if "Ro" not in self._dimensionless_numbers and \
                "Ek" not in self._dimensionless_numbers:
             self._equation_coefficients["coriolis_term"] = None
@@ -212,6 +213,7 @@ class EquationCoefficients():
             self._dimensionless_numbers[key] = value
 
     def _set_dimensionless_number(self, key, value):
+        assert self._closed is False
         assert hasattr(self, "_dimensionless_numbers")
         assert isinstance(key, str)
         assert isinstance(value, float)
@@ -219,10 +221,34 @@ class EquationCoefficients():
         assert value > 0.0
         self._dimensionless_numbers[key] = value
 
+    def clear(self):
+        self._closed = False
+        self._equation_coefficients.clear()
+        self._dimensionless_numbers.clear()
+
+    def close(self):
+        self._closed = True
+
     @property
     def equation_coefficients(self):
         self._compute_equation_coefficients()
         return self._equation_coefficients
+
+    def get_file_suffix(self):
+        assert hasattr(self, "_dimensionless_numbers")
+        assert len(self._dimensionless_numbers) > 0
+        suffix = ""
+        for key, value in self._dimensionless_numbers.items():
+            suffix += "_" + key + "{:1.3e}".format(value)
+        return suffix
+
+    def modify_dimensionless_number(self, key, value):
+        assert key in self._dimensionless_numbers
+        is_closed = self._closed
+        self._closed = False
+        self._set_dimensionless_number(key, value)
+        self._closed = is_closed
+        self._compute_equation_coefficients
 
     @property
     def Re(self):
@@ -230,6 +256,7 @@ class EquationCoefficients():
 
     @Re.setter
     def Re(self, value):
+        assert self._closed is False
         if "Ek" in self._dimensionless_numbers and \
                 "Ro" in self._dimensionless_numbers:  # pragma: no cover
             raise RuntimeError("Overconstrained parameter set.")
@@ -241,6 +268,7 @@ class EquationCoefficients():
 
     @Fr.setter
     def Fr(self, value):
+        assert self._closed is False
         self._set_dimensionless_number("Fr", value)
 
     @property
@@ -249,6 +277,7 @@ class EquationCoefficients():
 
     @Ek.setter
     def Ek(self, value):
+        assert self._closed is False
         if "Re" in self._dimensionless_numbers and \
                 "Ro" in self._dimensionless_numbers:  # pragma: no cover
             raise RuntimeError("Overconstrained parameter set.")
@@ -260,6 +289,7 @@ class EquationCoefficients():
 
     @Ro.setter
     def Ro(self, value):
+        assert self._closed is False
         if "Re" in self._dimensionless_numbers and \
                 "Ek" in self._dimensionless_numbers:  # pragma: no cover
             raise RuntimeError("Overconstrained parameter set.")

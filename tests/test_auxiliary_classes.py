@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-from auxiliary_classes import EquationCoefficients
+from auxiliary_classes import EquationCoefficientHandler
 
 def test_equation_coefficients():
-    eq01 = EquationCoefficients(Reynolds=50.0)
+    eq01 = EquationCoefficientHandler(Reynolds=50.0)
     print(eq01)
     eq01.Fr = 10.0
     _ = eq01.equation_coefficients
@@ -15,7 +15,7 @@ def test_equation_coefficients():
     _ = eq01.Ek
     _ = eq01.Re
 
-    eq02 = EquationCoefficients()
+    eq02 = EquationCoefficientHandler()
     print(eq02)
     eq02.Ro = 1.0
     _ = eq02.equation_coefficients

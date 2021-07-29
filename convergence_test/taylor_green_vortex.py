@@ -2,16 +2,15 @@
 # -*- coding: utf-8 -*-
 import dolfin as dlfn
 import matplotlib.pyplot as plt
+import numpy as np
+from auxiliary_classes import EquationCoefficientHandler
 from grid_generator import hyper_cube
 from grid_generator import HyperCubeBoundaryMarkers
 from math import ceil
-import numpy as np
 from ns_bdf_solver import ImplicitBDFSolver
 from ns_solver_base import PressureBCType
 from ns_problem import InstationaryProblem
-
 dlfn.set_log_level(30)
-
 Re = 100.0
 gamma = 2.0 * dlfn.pi
 
@@ -54,7 +53,6 @@ class TaylorGreenVortex(InstationaryProblem):
         super().__init__(main_dir, start_time=0.0, end_time=end_time,
                          desired_start_time_step=time_step, n_max_steps=n_max_steps)
         self._problem_name = "TaylorGreenVortex"
-        self.set_parameters(Re=Re)
         self._n_points = None
         self._output_frequency = 0
         self._postprocessing_frequency = 1
@@ -88,6 +86,9 @@ class TaylorGreenVortex(InstationaryProblem):
     def set_boundary_conditions(self):
         # pressure mean value constraint
         self._bcs = ((PressureBCType.mean_value, None, 0.0), )
+
+    def set_equation_coefficients(self):
+        self._coefficient_handler = EquationCoefficientHandler(Re=Re)
 
     def set_periodic_boundary_conditions(self):
         """Set periodic boundary conditions in x- and y-direction."""

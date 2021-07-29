@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import dolfin as dlfn
+from auxiliary_classes import EquationCoefficientHandler
 from grid_generator import hyper_cube, HyperCubeBoundaryMarkers
 from ns_problem import StationaryProblem
 from ns_solver_base import VelocityBCType
@@ -10,11 +11,8 @@ dlfn.set_log_level(40)
 class CavityProblem(StationaryProblem):
     def __init__(self, n_points, main_dir=None):
         super().__init__(main_dir)
-
         self._n_points = n_points
         self._problem_name = "Cavity"
-
-        self.set_parameters(Re=10.0)
 
     def setup_mesh(self):
         # create mesh
@@ -29,6 +27,9 @@ class CavityProblem(StationaryProblem):
                      (no_slip, BoundaryMarkers.right.value, None),
                      (no_slip, BoundaryMarkers.bottom.value, None),
                      (constant, BoundaryMarkers.top.value, (1.0, 0.0)))
+
+    def set_equation_coefficients(self):
+        self._coefficient_handler = EquationCoefficientHandler(Re=10.0)
 
 
 if __name__ == "__main__":

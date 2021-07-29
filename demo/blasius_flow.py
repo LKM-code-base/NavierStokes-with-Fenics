@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import dolfin as dlfn
+from auxiliary_classes import EquationCoefficientHandler
+
 from grid_generator import blasius_plate
 from ns_problem import StationaryProblem
 from ns_solver_base import VelocityBCType
@@ -12,7 +14,6 @@ class BlasiusFlowProblem(StationaryProblem):
     def __init__(self, main_dir=None):
         super().__init__(main_dir)
         self._problem_name = "BlasiusFlow"
-        self.set_parameters(Re=200.0)
 
     def setup_mesh(self):
         # create mesh
@@ -25,6 +26,9 @@ class BlasiusFlowProblem(StationaryProblem):
         self._bcs = ((VelocityBCType.function, self._boundary_marker_map["inlet"], inlet_velocity),
                      (VelocityBCType.no_normal_flux, self._boundary_marker_map["bottom"], None),
                      (VelocityBCType.no_normal_flux, self._boundary_marker_map["top"], None))
+
+    def set_equation_coefficients(self):
+        self._coefficient_handler = EquationCoefficientHandler(Re=200.0)
 
     def set_internal_constraints(self):
         self._internal_constraints = ((VelocityBCType.no_slip, self._boundary_marker_map["plate"], None), )
