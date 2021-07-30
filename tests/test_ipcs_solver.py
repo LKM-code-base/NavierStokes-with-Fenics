@@ -1,12 +1,12 @@
 import dolfin as dlfn
 from auxiliary_classes import EquationCoefficientHandler
 from ns_problem import InstationaryProblem
-from ns_problem import VelocityBCType
+from ns_problem import VelocityBCType, PressureBCType
 from ns_ipcs_solver import IPCSSolver
 from grid_generator import hyper_rectangle
 from grid_generator import HyperRectangleBoundaryMarkers
 
-dlfn.set_log_level(20)
+dlfn.set_log_level(30)
 
 
 class ChannelFlowProblem(InstationaryProblem):
@@ -30,15 +30,17 @@ class ChannelFlowProblem(InstationaryProblem):
     def set_initial_conditions(self):
         self._initial_conditions = dict()
         self._initial_conditions["velocity"] = (0.0, 0.0)
-        # self._initial_conditions["pressure"] = (1.0)
+        self._initial_conditions["pressure"] = 0.0
 
     def set_boundary_conditions(self):
         # velocity boundary conditions
         inlet_velocity = dlfn.Expression(("6.0*x[1]/h*(1.0-x[1]/h)", "0.0"), h=1.0,
                                          degree=2)
-        self._bcs = ((VelocityBCType.function, HyperRectangleBoundaryMarkers.left.value, inlet_velocity),
-                     (VelocityBCType.no_slip, HyperRectangleBoundaryMarkers.bottom.value, None),
-                     (VelocityBCType.no_slip, HyperRectangleBoundaryMarkers.top.value, None))
+        Markers = HyperRectangleBoundaryMarkers
+        self._bcs = ((PressureBCType.constant, Markers.right.value, 0.0),
+                     (VelocityBCType.function, Markers.left.value, inlet_velocity),
+                     (VelocityBCType.no_slip, Markers.bottom.value, None),
+                     (VelocityBCType.no_slip, Markers.top.value, None))
 
     def postprocess_solution(self):
         # add pressure gradient to the field output

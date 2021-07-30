@@ -6,6 +6,7 @@ from ns_solver_base import InstationarySolverBase
 
 
 class ImplicitBDFSolver(InstationarySolverBase):
+    _required_objects = ("_solver")
 
     def __init__(self, mesh, boundary_markers, form_convective_term, time_stepping, tol=1e-10, max_iter=50):
 
