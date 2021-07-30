@@ -40,7 +40,7 @@ class AngularVelocityVector:
             _ = self._angular_velocity.derivative()
         except RuntimeError:
             derivative_exists = False
-        except:
+        except:  # pragma: no cover
             raise RuntimeError()
         if derivative_exists:
             derivative_value = self._angular_velocity.derivative()

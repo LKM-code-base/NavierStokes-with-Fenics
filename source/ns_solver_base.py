@@ -181,7 +181,7 @@ class SolverBase:
         if self._space_dim == 2:
             F += dlfn.Constant(2.0) * self._equation_coefficients["coriolis_term"] * omega * \
                     dot(dlfn.as_vector((-velocity[1], velocity[0])), w) * dV
-        else:
+        else:  # pragma: no cover
             assert len(self._Omega) == 3
             F += dlfn.Constant(2.0) * self._equation_coefficients["coriolis_term"] * \
                     dot(dlfn.cross(omega, velocity), w) * dV
@@ -198,7 +198,7 @@ class SolverBase:
         alpha = self._angular_velocity.derivative
         if alpha is None:
             return F
-        else:
+        else:  # pragma: no cover
             x = dlfn.SpatialCoordinate(self._mesh)
             dV = dlfn.Measure("dx", domain=self._mesh)
             if self._space_dim == 2:
