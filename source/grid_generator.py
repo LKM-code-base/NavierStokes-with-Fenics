@@ -88,7 +88,7 @@ def spherical_shell(dim, radii, n_refinements=0):
     if dim == 2:
         domain = Circle(center, ro) \
                - Circle(center, ri)
-        mesh = generate_mesh(domain, 75)
+        mesh = generate_mesh(domain, 25)
     elif dim == 3:
         domain = Sphere(center, ro) \
                - Sphere(center, ri)
