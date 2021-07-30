@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 from auxiliary_classes import EquationCoefficientHandler
 
+
 def test_equation_coefficients():
     eq01 = EquationCoefficientHandler(Reynolds=50.0)
     print(eq01)
@@ -40,7 +41,7 @@ def test_equation_coefficients():
     _ = eq03.equation_coefficients
     print(eq03)
     eq03.modify_dimensionless_number("Re", 10.0)
-    print(eq03.get_file_suffix())    
+    print(eq03.get_file_suffix())
 
 
 if __name__ == "__main__":

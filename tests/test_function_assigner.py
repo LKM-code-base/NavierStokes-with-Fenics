@@ -5,8 +5,8 @@ import numpy as np
 from grid_generator import hyper_cube
 from ns_solver_base import SolverBase
 
-n_points = 5
 # mesh
+n_points = 5
 mesh, boundary_markers = hyper_cube(2, n_points)
 # constructor
 solver = SolverBase(mesh, boundary_markers)

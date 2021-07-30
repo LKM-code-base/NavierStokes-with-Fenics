@@ -66,7 +66,10 @@ class SolverBase:
     # class variables
     _null_scalar = dlfn.Constant(0., name="null")
     _one_half = dlfn.Constant(0.5, name="one_half")
-    _form_function_types = (dlfn.function.function.Function, ufl.tensors.ListTensor, ufl.indexed.Indexed)
+    _form_function_types = (dlfn.function.argument.Argument,
+                            dlfn.function.function.Function,
+                            ufl.tensors.ListTensor,
+                            ufl.indexed.Indexed)
     _form_trial_function_types = (dlfn.function.argument.Argument, ufl.tensors.ListTensor)
     _sub_space_association = {0: "velocity", 1: "pressure"}
     _field_association = {value: key for key, value in _sub_space_association.items()}
@@ -1049,7 +1052,7 @@ class InstationarySolverBase(SolverBase):
         assert isinstance(initial_conditions, dict)
         assert "velocity" in initial_conditions
         # check that function spaces exist
-        if not all(hasattr(self, attr) for attr in self._required_objects):
+        if not all(hasattr(self, attr) for attr in ("_Wh", "_solutions")):
             self._setup_function_spaces()
         # split functions
         velocity, pressure = self._solutions[0].split()
@@ -1075,7 +1078,6 @@ class InstationarySolverBase(SolverBase):
                                                     velocity_space)
         self._assign_function(old_velocity, projected_velocity_condition)
         self._assign_function(velocity, projected_velocity_condition)
-
         # pressure part
         if "pressure" in initial_conditions:
             pressure_condition = initial_conditions["pressure"]

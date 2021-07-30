@@ -4,25 +4,23 @@ import dolfin as dlfn
 import numpy as np
 from auxiliary_methods import boundary_normal
 from bdf_time_stepping import BDFTimeStepping
-from ns_solver_base import SolverBase, InstationarySolverBase, VelocityBCType, PressureBCType
+from ns_solver_base import InstationarySolverBase, VelocityBCType, PressureBCType
 
 
 class IPCSSolver(InstationarySolverBase):
     _required_objects = ("_Wh", "_Vh", "_joint_solution", "_velocities", "_pressure", "_old_pressure")
 
     def __init__(self, mesh, boundary_markers, form_convective_term, time_stepping, tol=1e-10, max_iter=50):
-
         # input check
         assert isinstance(time_stepping, BDFTimeStepping)
-
         super().__init__(mesh, boundary_markers, form_convective_term,
                          time_stepping, tol, max_iter)
 
     def _acceleration_term(self, velocity_solutions, w):
         # input check
         assert isinstance(velocity_solutions, (list, tuple))
-        # assert all(isinstance(x, self._form_function_types) for x in velocity_solutions)
-        # assert isinstance(w, self._form_function_types)
+        assert all(isinstance(x, self._form_function_types) for x in velocity_solutions)
+        assert isinstance(w, self._form_function_types)
         # step size
         k = self._next_step_size
         # time stepping coefficients
@@ -34,18 +32,28 @@ class IPCSSolver(InstationarySolverBase):
             accelerations.append(alpha[i] * dlfn.dot(velocity_solutions[i], w))
         return sum(accelerations) / k
 
+    def _advance_solution(self):
+        """Advance solution objects in time."""
+        assert hasattr(self, "_velocities")
+        assert hasattr(self, "_intermediate_velocity")
+        assert hasattr(self, "_pressure")
+        assert hasattr(self, "_old_pressure")
+        for i in range(len(self._velocities), 1, -1):
+            self._velocities[i-1].assign(self._velocities[i-2])
+        self._intermediate_velocity.assign(self._velocities[0])
+        self._old_pressure.assign(self._pressure)
+
     def _setup_boundary_conditions(self):
         assert hasattr(self, "_Wh")
         assert hasattr(self, "_boundary_markers")
         assert hasattr(self, "_velocity_bcs")
-
+        WhSub = self._get_subspaces()
         # empty dirichlet bcs
         self._dirichlet_bcs = dict()
         self._dirichlet_bcs['velocity'] = []
         self._dirichlet_bcs['pressure'] = []
-
         # velocity part
-        velocity_space = self._Vh['velocity']
+        velocity_space = WhSub['velocity']
         for bc in self._velocity_bcs:
             # unpack values
             if len(bc) == 3:
@@ -125,7 +133,7 @@ class IPCSSolver(InstationarySolverBase):
                 raise RuntimeError()
 
         # pressure part
-        pressure_space = self._Vh["pressure"]
+        pressure_space = WhSub["pressure"]
         if hasattr(self, "_pressure_bcs"):
             for bc in self._pressure_bcs:
                 # unpack values
@@ -156,32 +164,23 @@ class IPCSSolver(InstationarySolverBase):
         Class method setting up function spaces.
         """
         # create joint function space
-        SolverBase._setup_function_spaces(self)
-
+        if not hasattr(self, "_Wh"):
+            super()._setup_function_spaces()
         # create subspaces
-        self._Vh = dict()
-        for key, index in self._field_association.items():
-            space = dlfn.FunctionSpace(self._Wh.mesh(),
-                                       self._Wh.sub(index).ufl_element())
-            self._Vh[key] = space
-
-        # create joint solution
-        self._solutions = [dlfn.Function(self._Wh), dlfn.Function(self._Wh)]
-
+        WhSub = self._get_subspaces()
         # create separate solutions
-        self._velocities = [dlfn.Function(self._Vh["velocity"]) for _ in range(self._time_stepping.n_levels() + 1)]
-        self._intermediate_velocity = dlfn.Function(self._Vh["velocity"])
-        self._pressure = dlfn.Function(self._Vh["pressure"])
-        self._old_pressure = dlfn.Function(self._Vh["pressure"])
+        self._velocities = [dlfn.Function(WhSub["velocity"]) for _ in range(self._time_stepping.n_levels() + 1)]
+        self._intermediate_velocity = dlfn.Function(WhSub["velocity"])
+        self._pressure = dlfn.Function(WhSub["pressure"])
+        self._old_pressure = dlfn.Function(WhSub["pressure"])
 
     def _setup_problem(self):
         """Method setting up solvers object of the instationary problem.
         """
         assert hasattr(self, "_mesh")
         assert hasattr(self, "_boundary_markers")
-
-        if not all(hasattr(self, attr) for attr in ("_Wh", "_Vh"
-                                                    "_joint_solution",
+        if not all(hasattr(self, attr) for attr in ("_Wh", "_solutions",
+                                                    "_intermediate_velocity",
                                                     "_velocities",
                                                     "_pressure", "_old_pressure")):  # pragma: no cover
             self._setup_function_spaces()
@@ -189,9 +188,7 @@ class IPCSSolver(InstationarySolverBase):
         if not all(hasattr(self, attr) for attr in ("_next_step_size",
                                                     "_alpha")):
             self._update_time_stepping_coefficients()
-
         self._setup_boundary_conditions()
-
         # setup the diffusion step
         self._setup_diffusion_step()
         # setup the projection step
@@ -201,49 +198,36 @@ class IPCSSolver(InstationarySolverBase):
 
     def _setup_diffusion_step(self):
         """Method setting up solver object of the diffusion step."""
-        assert hasattr(self, "_Vh")
         assert hasattr(self, "_intermediate_velocity")
         assert hasattr(self, "_old_pressure")
         assert hasattr(self, "_velocities")
 
         # creating test and trial functions
-        Vh = self._Vh["velocity"]
+        Vh = self._get_subspace("velocity")
         w = dlfn.TestFunction(Vh)
         # volume element
         dV = dlfn.Measure("dx", domain=self._mesh)
-
-        # dimensionless parameters
-        assert hasattr(self, "_Re")
-        Re = self._Re
-
         # sought-for velocity
         velocity = self._intermediate_velocity
-
         # velocities used in acceleration term
         velocities = []
         velocities.append(velocity)
         for i in range(1, self._time_stepping.n_levels() + 1):
             velocities.append(self._velocities[i])
-
+        # volume element
+        dV = dlfn.Measure("dx", domain=self._mesh)
         # momentum equation
-        self._F = (
-                    self._acceleration_term(velocities, w)
-                    + self._convective_term(velocity, w)
-                    - self._divergence_term(w, self._old_pressure)
-                    + self._viscous_term(velocity, w) / Re
-                    ) * dV
-
+        self._F = (self._acceleration_term(velocities, w)
+                   + self._convective_term(velocity, w)
+                   - self._divergence_term(w, self._old_pressure)
+                   + self._viscous_term(velocity, w)
+                   ) * dV
         # add boundary tractions
         self._F = self._add_boundary_tractions(self._F, w)
-
         # add body force term
-        if hasattr(self, "_body_force"):
-            assert hasattr(self, "_Fr"), "Froude number is not specified."
-            self._F -= dlfn.dot(self._body_force, w) / self._Fr**2 * dV
-
+        self._F = self._add_body_forces(self._F, w)
         # linearization using Newton's method
         self._J_newton = dlfn.derivative(self._F, velocity)
-
         # setup problem with Newton linearization
         self._diffusion_problem = dlfn.NonlinearVariationalProblem(self._F,
                                                                    velocity,
@@ -258,12 +242,11 @@ class IPCSSolver(InstationarySolverBase):
 
     def _setup_projection_step(self):
         """Method setting up solver object of the projection step."""
-        assert hasattr(self, "_Vh")
         assert hasattr(self, "_intermediate_velocity")
         assert hasattr(self, "_old_pressure")
 
         # creating test and trial functions
-        Vh = self._Vh["pressure"]
+        Vh = self._get_subspace("pressure")
         p = dlfn.TrialFunction(Vh)
         q = dlfn.TestFunction(Vh)
 
@@ -293,7 +276,7 @@ class IPCSSolver(InstationarySolverBase):
 
         # velocity correction step
         # creating test and trial functions
-        Vh = self._Vh["velocity"]
+        Vh = self._get_subspace("velocity")
         v = dlfn.TrialFunction(Vh)
         w = dlfn.TestFunction(Vh)
 
@@ -369,16 +352,22 @@ class IPCSSolver(InstationarySolverBase):
             for i in range(3):
                 self._alpha[i].assign(alpha[i])
 
+    def set_initial_conditions(self, initial_conditions):
+        super().set_initial_conditions(initial_conditions)
+        assert all(hasattr(self, x) for x in ("_velocities", "_intermediate_velocity",
+                                              "_pressure", "_old_pressure"))
+        velocity, pressure = self._solutions[0].split()
+        old_velocity, old_pressure = self._solutions[1].split()
+        self._assign_function(self._pressure, pressure)
+        self._assign_function(self._old_pressure, old_pressure)
+        self._assign_function(self._velocities[0], velocity)
+        self._assign_function(self._velocities[1], old_velocity)
+
     @property
     def solution(self):
-        velocity, pressure = self._solutions[0].split()
-
-        dlfn.assign(velocity, dlfn.project(self._velocities[0], self._Vh['velocity']))
-        dlfn.assign(pressure, dlfn.project(self._pressure, self._Vh['pressure']))
-
-        old_velocity, old_pressure = self._solutions[1].split()
-
-        dlfn.assign(old_velocity, dlfn.project(self._velocities[1], self._Vh['velocity']))
-        dlfn.assign(old_pressure, dlfn.project(self._old_pressure, self._Vh['pressure']))
-
+        WhSub = self._get_subspaces()
+        assert self._velocities[0] in WhSub["velocity"]
+        assert self._pressure in WhSub["pressure"]
+        self._assign_function(self._solutions[0], {"velocity": self._velocities[0],
+                                                   "pressure": self._pressure})
         return self._solutions[0]
