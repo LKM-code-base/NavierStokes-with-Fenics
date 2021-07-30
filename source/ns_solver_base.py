@@ -500,7 +500,7 @@ class SolverBase:
                                                      pressure_space)
         if len(self._dirichlet_bcs) == 0:
             assert hasattr(self, "_constrained_domain")
-        
+
     def _setup_velocity_boundary_conditions(self, dirichlet_bc_collection,
                                             velocity_bcs, velocity_space):
         assert isinstance(dirichlet_bc_collection, list)

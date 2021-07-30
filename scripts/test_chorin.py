@@ -11,11 +11,12 @@ problem_name = "ChannelFlow"
 Re = dlfn.Constant(100.0)
 gamma = 2.0 * dlfn.pi
 n_points = 10
-poly_deg = 1 # polynomial degree
+poly_deg = 1  # polynomial degree
 probe_solution = False
 null_vector = dlfn.Constant((0.0, 0.0))
 null = dlfn.Constant(0.0)
 one = dlfn.Constant(1.0)
+
 
 def solve_problem(time_step):
     # time
@@ -25,6 +26,7 @@ def solve_problem(time_step):
     # time stepping coefficients
     alpha = [dlfn.Constant(1.0, name="alpha00"),
              dlfn.Constant(-1.0, name="alpha01")]
+
     def acceleration_term(velocity_solutions, w):
         # input check
         assert isinstance(velocity_solutions, (list, tuple))
@@ -33,7 +35,7 @@ def solve_problem(time_step):
         accelerations = []
         for i in range(len(alpha)):
             accelerations.append(alpha[i] * velocity_solutions[i])
-        return dlfn.dot(sum(accelerations), w) / k
+        return dot(sum(accelerations), w) / k
 
     def convective_term(u, v):
         return dot(dot(grad(u), u), v)
@@ -43,7 +45,7 @@ def solve_problem(time_step):
 
     def viscous_term(u, v):
         return inner(grad(u), grad(v)) / Re
-    
+
     # xdmf file
     xdmf_file = dlfn.XDMFFile(problem_name + ".xdmf")
     xdmf_file.parameters["flush_output"] = True
@@ -57,7 +59,7 @@ def solve_problem(time_step):
     cell = mesh.ufl_cell()
     elemV = dlfn.VectorElement("CG", cell, poly_deg + 1)
     elemP = dlfn.FiniteElement("CG", cell, poly_deg)
-    mixedElement = dlfn.MixedElement([elemV , elemP])
+    mixedElement = dlfn.MixedElement([elemV, elemP])
     Wh = dlfn.FunctionSpace(mesh, mixedElement)
     WhSub = dict()
     WhSub["velocity"] = Wh.sub(0).collapse()
@@ -69,10 +71,10 @@ def solve_problem(time_step):
     # boundary conditions
     velocity_bcs = []
     velocity_bcs.append(dlfn.DirichletBC(WhSub["velocity"], null_vector,
-                                         boundary_markers, 
+                                         boundary_markers,
                                          HyperRectangleBoundaryMarkers.top.value))
     velocity_bcs.append(dlfn.DirichletBC(WhSub["velocity"], null_vector,
-                                         boundary_markers, 
+                                         boundary_markers,
                                          HyperRectangleBoundaryMarkers.bottom.value))
     pressure_bcs = []
     inlet_pressure = dlfn.Expression("sin(M_PI * time)", time=0.0, degree=0)
@@ -91,7 +93,7 @@ def solve_problem(time_step):
     pressure = dlfn.Function(WhSub["pressure"], name="pressure")
     # volume element
     dV = dlfn.Measure("dx", domain=mesh)
-    # diffusion step 
+    # diffusion step
     w = dlfn.TestFunction(WhSub["velocity"])
     F_diffusion = (acceleration_term([intermediate_velocity, velocities[1]], w)
                    + convective_term(intermediate_velocity, w)
@@ -107,8 +109,8 @@ def solve_problem(time_step):
     # projection step
     phi = dlfn.TrialFunction(WhSub["pressure"])
     q = dlfn.TestFunction(WhSub["pressure"])
-    projection_lhs = dlfn.dot(dlfn.grad(phi), dlfn.grad(q)) * dV
-    projection_rhs = - alpha[0] / k * dlfn.div(intermediate_velocity) * q * dV
+    projection_lhs = dot(grad(phi), grad(q)) * dV
+    projection_rhs = - alpha[0] / k * div(intermediate_velocity) * q * dV
     projection_problem = dlfn.LinearVariationalProblem(projection_lhs,
                                                        projection_rhs,
                                                        pressure,
@@ -116,11 +118,9 @@ def solve_problem(time_step):
     projection_solver = dlfn.LinearVariationalSolver(projection_problem)
     # correction step
     v = dlfn.TrialFunction(WhSub["velocity"])
-    correction_lhs = dlfn.dot(v, w) * dV
-    correction_rhs = \
-            (dlfn.dot(intermediate_velocity, w)
-             - (k / alpha[0]) * dlfn.dot(dlfn.grad(pressure), w)
-             ) * dV
+    correction_lhs = dot(v, w) * dV
+    correction_rhs = (dot(intermediate_velocity, w)
+                      - (k / alpha[0]) * dot(grad(pressure), w)) * dV
     correction_problem = dlfn.LinearVariationalProblem(correction_lhs,
                                                        correction_rhs,
                                                        velocities[0],

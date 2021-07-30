@@ -7,9 +7,9 @@ from ns_solver_base import InstationarySolverBase
 
 
 class IPCSSolver(InstationarySolverBase):
-    _required_objects = ("_diffusion_solver" , "_projection_solver",
+    _required_objects = ("_diffusion_solver", "_projection_solver",
                          "_velocity_correction_solver")
-    
+
     def __init__(self, mesh, boundary_markers, form_convective_term, time_stepping, tol=1e-10, max_iter=50):
         # input check
         assert isinstance(time_stepping, BDFTimeStepping)
@@ -43,7 +43,6 @@ class IPCSSolver(InstationarySolverBase):
         self._old_pressure.assign(self._pressure)
 
     def _setup_boundary_conditions(self):
-        print("IPCSSolver._setup_boundary_conditions")
         # split boundary conditions
         self._dirichlet_bcs = dict()
         self._dirichlet_bcs["velocity"] = []
@@ -60,7 +59,8 @@ class IPCSSolver(InstationarySolverBase):
             self._setup_pressure_boundary_conditions(self._dirichlet_bcs["pressure"],
                                                      self._pressure_bcs,
                                                      pressure_space)
-        if len(self._dirichlet_bcs["velocity"]) == 0 and len(self._dirichlet_bcs["pressure"]) == 0:
+        if len(self._dirichlet_bcs["velocity"]) == 0 and \
+                len(self._dirichlet_bcs["pressure"]) == 0:  # pragma: no cover
             assert hasattr(self, "_constrained_domain")
 
     def _setup_function_spaces(self):
@@ -83,7 +83,6 @@ class IPCSSolver(InstationarySolverBase):
 
     def _setup_problem(self):
         """Method setting up solvers object of the instationary problem."""
-        print("IPCSSolver._setup_problem")
         assert hasattr(self, "_mesh")
         assert hasattr(self, "_boundary_markers")
         if not all(hasattr(self, attr) for attr in ("_Wh", "_solutions",
@@ -95,7 +94,7 @@ class IPCSSolver(InstationarySolverBase):
         if not all(hasattr(self, attr) for attr in ("_next_step_size",
                                                     "_alpha")):
             self._update_time_stepping_coefficients()
-        
+
         self._setup_boundary_conditions()
         # setup the diffusion step
         self._setup_diffusion_step()
