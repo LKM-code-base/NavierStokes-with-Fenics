@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import dolfin as dlfn
+from auxiliary_classes import EquationCoefficientHandler
 from grid_generator import open_hyper_cube, HyperCubeBoundaryMarkers
 from ns_problem import StationaryProblem
 from ns_solver_base import VelocityBCType
@@ -10,11 +11,8 @@ dlfn.set_log_level(20)
 class GravityDrivenFlowProblem(StationaryProblem):
     def __init__(self, n_points, main_dir=None):
         super().__init__(main_dir)
-
         self._n_points = n_points
         self._problem_name = "OpenCube"
-
-        self.set_parameters(Re=25.0,  Fr=10.0)
 
     def setup_mesh(self):
         # create mesh
@@ -35,6 +33,9 @@ class GravityDrivenFlowProblem(StationaryProblem):
                      (no_slip, BoundaryMarkers.right.value, None),
                      (no_slip, BoundaryMarkers.bottom.value, None),
                      (no_slip, BoundaryMarkers.top.value, None))
+
+    def set_equation_coefficients(self):
+        self._coefficient_handler = EquationCoefficientHandler(Re=25.0, Fr=10.0)
 
     def postprocess_solution(self):
         pressure = self._get_pressure()

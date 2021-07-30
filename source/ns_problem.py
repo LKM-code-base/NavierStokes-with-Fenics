@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+from auxiliary_classes import EquationCoefficientHandler
 from auxiliary_methods import extract_all_boundary_markers
 import dolfin as dlfn
 from bdf_time_stepping import BDFTimeStepping
@@ -198,11 +199,21 @@ class ProblemBase:
 
         return bc_map
 
-    def _get_filename(self):  # pragma: no cover
+    def _get_filename(self):
         """
-        Purely virtual method for setting the filename.
+        Class method returning a filename for the given set of parameters.
         """
-        raise NotImplementedError("You are calling a purely virtual method.")
+        # input check
+        assert hasattr(self, "_problem_name")
+        assert hasattr(self, "_coefficient_handler")
+
+        problem_name = self._problem_name
+
+        fname = problem_name
+        fname += self._coefficient_handler.get_file_suffix()
+        fname += self._suffix
+
+        return path.join(self._results_dir, fname)
 
     def _get_pressure(self):
         """
@@ -270,6 +281,13 @@ class ProblemBase:
         problem.
         """
         pass
+
+    def set_equation_coefficients(self):  # pragma: no cover
+        """
+        Sets up the dimensionless parameters of the model by creating an
+        ``EquationCoefficientHandler`` object.
+        """
+        raise NotImplementedError("You are calling a purely virtual method.")
 
     def set_internal_constraints(self):  # pragma: no cover
         """
@@ -363,60 +381,9 @@ class StationaryProblem(ProblemBase):
         # polynomial degree
         self._p_deg = 1
 
-    def _get_filename(self):
-        """
-        Class method returning a filename for the given set of parameters.
-
-        The method also updates the parameter file.
-
-        Parameters
-        ----------
-        Re : float
-            Kinetic Reynolds numbers.
-        Fr : float (optional)
-            Froude number.
-        suffix : str (optional)
-            Opitonal filename extension.
-
-        Returns
-        ----------
-        fname : str
-            filename
-        """
-        # input check
-        assert hasattr(self, "_Re")
-        assert hasattr(self, "_problem_name")
-        problem_name = self._problem_name
-
-        fname = problem_name + "_Re" + "{0:01.4e}".format(self._Re)
-        if hasattr(self, "_Fr") and self._Fr is not None:
-            fname += "_Fr" + "{0:01.4e}".format(self._Fr)
-        fname += self._suffix
-
-        return path.join(self._results_dir, fname)
-
     def _get_solver(self):
         assert hasattr(self, "_navier_stokes_solver")
         return self._navier_stokes_solver
-
-    def set_parameters(self, Re=1.0, Fr=None):
-        """
-        Sets up the parameters of the model by creating or modifying class
-        objects.
-
-        Parameters
-        ----------
-        Re : float
-            Kinetic Reynolds numbers.
-        Fr : float
-            Froude number.
-        """
-        assert isinstance(Re, float) and Re > 0.0
-        self._Re = Re
-
-        if Fr is not None:
-            assert isinstance(Fr, float) and Fr > 0.0
-        self._Fr = Fr
 
     def solve_problem(self):
         """
@@ -440,9 +407,11 @@ class StationaryProblem(ProblemBase):
         # setup has body force
         self.set_body_force()
 
-        # setup parameters
-        if not hasattr(self, "_Re"):  # pragma: no cover
-            self.set_parameters()
+        # set equation coefficients
+        self.set_equation_coefficients()
+        assert hasattr(self, "_coefficient_handler")
+        assert isinstance(self._coefficient_handler, EquationCoefficientHandler)
+        self._coefficient_handler.close()
 
         # check setup of boundary and initial conditions and constraints
         if not hasattr(self, "_bcs"):
@@ -471,63 +440,46 @@ class StationaryProblem(ProblemBase):
         else:
             self._navier_stokes_solver.set_boundary_conditions(self._bcs)
 
-        # pass dimensionless numbers
-        self._navier_stokes_solver.set_dimensionless_numbers(self._Re, self._Fr)
+        # pass equation coefficients
+        self._navier_stokes_solver.set_equation_coefficients(self._coefficient_handler.equation_coefficients)
 
         # pass body force
         if hasattr(self, "_body_force"):
             self._navier_stokes_solver.set_body_force(self._body_force)
 
         try:
-            # solve problem
-            if self._Fr is not None:
-                dlfn.info("Solving problem with Re = {0:.2f} and "
-                          "Fr = {1:0.2f}".format(self._Re, self._Fr))
-            else:
-                dlfn.info("Solving problem with Re = {0:.2f}".format(self._Re))
+            dlfn.info("Solving problem")
             self._navier_stokes_solver.solve()
-
             # postprocess solution
             self.postprocess_solution()
-
             # write XDMF-files
             self._write_xdmf_file()
-
             return
-
         except RuntimeError:  # pragma: no cover
             pass
-
         except Exception as ex:  # pragma: no cover
             template = "An unexpected exception of type {0} occurred. " + \
                        "Arguments:\n{1!r}"
             message = template.format(type(ex).__name__, ex.args)
             print(message)
 
-        if self._Fr is not None:  # pragma: no cover
-            dlfn.info("Solving problem for Re = {0:.2f} and Fr = {1:0.2f} "
-                      "without suitable initial guess failed."
-                      .format(self._Re, self._Fr))
-        else:  # pragma: no cover
-            dlfn.info("Solving problem for Re = {0:.2f} without "
-                      "suitable initial guess failed.".format(self._Re))
         # parameter continuation
         dlfn.info("Solving problem with parameter continuation...")  # pragma: no cover
 
         # mixed logarithmic-linear spacing
-        logReRange = np.logspace(np.log10(10.0), np.log10(self._Re),
+        finalRe = self._coefficient_handler.Re  # pragma: no cover
+        assert finalRe is not None  # pragma: no cover
+        logRange = np.logspace(np.log10(10.0), np.log10(finalRe),
                                  num=8, endpoint=True)  # pragma: no cover
-        linReRange = np.linspace(logReRange[-2], self._Re,
+        linRange = np.linspace(logRange[-2], finalRe,
                                  num=8, endpoint=True)  # pragma: no cover
-        for Re in np.concatenate((logReRange[:-2], linReRange)):  # pragma: no cover
-            # pass dimensionless numbers
-            self._navier_stokes_solver.set_dimensionless_numbers(Re, self._Fr)
+        finalRange = np.concatenate((logRange[:-2], linRange))  # pragma: no cover
+        for Re in finalRange:  # pragma: no cover
+            # modify dimensionless numbers
+            self._coefficient_handler.modify_dimensionless_number("Re", Re)
+            self._navier_stokes_solver.set_equation_coefficients(self._coefficient_handler.equation_coefficients)
             # solve problem
-            if self._Fr is not None:
-                dlfn.info("Solving problem with Re = {0:.2f} and "
-                          "Fr = {1:0.2f}".format(Re, self._Fr))
-            else:
-                dlfn.info("Solving problem with Re = {0:.2f}".format(Re))
+            dlfn.info("Solving problem with Re = {0:.2f}".format(Re))
             self._navier_stokes_solver.solve()
 
         # postprocess solution
@@ -638,37 +590,6 @@ class InstationaryProblem(ProblemBase):
             else:  # pragma: no cover
                 self._time_stepping.set_desired_next_step_size(next_step_size)
 
-    def _get_filename(self):
-        """
-        Class method returning a filename for the given set of parameters.
-
-        The method also updates the parameter file.
-
-        Parameters
-        ----------
-        Re : float
-            Kinetic Reynolds numbers.
-        Fr : float (optional)
-            Froude number.
-        suffix : str (optional)
-            Opitonal filename extension.
-
-        Returns
-        ----------
-        fname : str
-            filename
-        """
-        # input check
-        assert hasattr(self, "_problem_name")
-        problem_name = self._problem_name
-
-        fname = problem_name + "_Re" + "{0:01.4e}".format(self._Re)
-        if hasattr(self, "_Fr") and self._Fr is not None:
-            fname += "_Fr" + "{0:01.4e}".format(self._Fr)
-        fname += self._suffix
-
-        return path.join(self._results_dir, fname)
-
     def _get_solver(self):
         assert hasattr(self, "_navier_stokes_solver")
         return self._navier_stokes_solver
@@ -679,26 +600,6 @@ class InstationaryProblem(ProblemBase):
         problem.
         """
         raise NotImplementedError("You are calling a purely virtual method.")
-
-    def set_parameters(self, Re=1.0, Fr=None,
-                       min_cfl=None, max_cfl=None):
-        """
-        Sets up the parameters of the model by creating or modifying class
-        objects.
-
-        Parameters
-        ----------
-        Re : float
-            Kinetic Reynolds numbers.
-        Fr : float
-            Froude number.
-        """
-        assert isinstance(Re, float) and Re > 0.0
-        self._Re = Re
-
-        if Fr is not None:
-            assert isinstance(Fr, float) and Fr > 0.0
-        self._Fr = Fr
 
     def set_solver_class(self, InstationarySolverClass):
         """
@@ -731,9 +632,11 @@ class InstationaryProblem(ProblemBase):
         # setup has body force
         self.set_body_force()
 
-        # setup parameters
-        if not hasattr(self, "_Re"):  # pragma: no cover
-            self.set_parameters()
+        # set equation coefficients
+        self.set_equation_coefficients()
+        assert hasattr(self, "_coefficient_handler")
+        assert isinstance(self._coefficient_handler, EquationCoefficientHandler)
+        self._coefficient_handler.close()
 
         # set initial condition
         self.set_initial_conditions()
@@ -756,9 +659,8 @@ class InstationaryProblem(ProblemBase):
                                               self._form_convective_term,
                                               self._time_stepping,
                                               self._tol, self._maxiter)
-
-        # pass dimensionless numbers
-        self._navier_stokes_solver.set_dimensionless_numbers(self._Re, self._Fr)
+        # pass equation coefficients
+        self._navier_stokes_solver.set_equation_coefficients(self._coefficient_handler.equation_coefficients)
 
         # pass body force
         if hasattr(self, "_body_force"):
@@ -782,14 +684,8 @@ class InstationaryProblem(ProblemBase):
         self._navier_stokes_solver.set_initial_conditions(self._initial_conditions)
         self._write_xdmf_file(current_time=0.0)
 
-        if self._Fr is not None:
-            print("Solving problem with Re = {0:.2f} and "
-                  "Fr = {1:0.2f} until time = {2:0.2f}"
-                  .format(self._Re, self._Fr, self._time_stepping.end_time))
-        else:
-            print("Solving problem with Re = {0:.2f} and "
-                  "until time = {1:0.2f}"
-                  .format(self._Re, self._time_stepping.end_time))
+        print("Solving problem until time = {:0.2f}".format(self._time_stepping.end_time))
+
         # time loop
         assert hasattr(self, "_postprocessing_frequency")
         assert hasattr(self, "_output_frequency")

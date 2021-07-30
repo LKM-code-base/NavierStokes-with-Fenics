@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import dolfin as dlfn
+from auxiliary_classes import EquationCoefficientHandler
 from grid_generator import backward_facing_step
 from ns_problem import StationaryProblem
 from ns_solver_base import VelocityBCType
@@ -11,10 +12,7 @@ dlfn.set_log_level(20)
 class BackwardFacingStepProblem(StationaryProblem):
     def __init__(self, main_dir=None):
         super().__init__(main_dir)
-
         self._problem_name = "BackwardFacingStep"
-
-        self.set_parameters(Re=50.0)
 
     def setup_mesh(self):
         # create mesh
@@ -26,6 +24,9 @@ class BackwardFacingStepProblem(StationaryProblem):
                                          h=0.5, y0=0.5, degree=2)
         self._bcs = ((VelocityBCType.function, self._boundary_marker_map["inlet"], inlet_velocity),
                      (VelocityBCType.no_slip, self._boundary_marker_map["walls"], None))
+
+    def set_equation_coefficients(self):
+        self._coefficient_handler = EquationCoefficientHandler(Re=50.0)
 
     def postprocess_solution(self):
         # add pressure gradient to the field output

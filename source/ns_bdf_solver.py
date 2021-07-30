@@ -62,30 +62,20 @@ class ImplicitBDFSolver(InstationarySolverBase):
 
         # volume element
         dV = dlfn.Measure("dx", domain=self._mesh)
-
-        # dimensionless parameters
-        assert hasattr(self, "_Re")
-        Re = self._Re
-
         # weak forms
         # mass balance
         F_mass = -self._divergence_term(velocity, q) * dV
-
         # momentum balance
-        F_momentum = (
-                        self._acceleration_term(velocity_solutions, w)
-                        + self._convective_term(velocity, w)
-                        - self._divergence_term(w, pressure)
-                        + self._viscous_term(velocity, w) / Re
-                        ) * dV
-
+        F_momentum = (self._acceleration_term(velocity_solutions, w)
+                      + self._convective_term(velocity, w)
+                      - self._divergence_term(w, pressure)
+                      + self._viscous_term(velocity, w)
+                      ) * dV
         # add boundary tractions
         F_momentum = self._add_boundary_tractions(F_momentum, w)
 
         # add body force term
-        if hasattr(self, "_body_force"):
-            assert hasattr(self, "_Fr"), "Froude number is not specified."
-            F_momentum -= dlfn.dot(self._body_force, w) / self._Fr**2 * dV
+        F_momentum = self._add_body_forces(F_momentum, w)
 
         # joint weak form
         self._F = F_mass + F_momentum
