@@ -637,6 +637,9 @@ class InstationaryProblem(ProblemBase):
 
         # setup internal constraints
         self.set_internal_constraints()
+        
+        # setup angular velocity
+        self.set_angular_velocity()
 
         # setup boundary conditions
         self.set_boundary_conditions()
@@ -683,6 +686,9 @@ class InstationaryProblem(ProblemBase):
             assert hasattr(self, "_periodic_boundary_ids")
             self._navier_stokes_solver.set_periodic_boundary_conditions(self._periodic_bcs,
                                                                         self._periodic_boundary_ids)
+            
+        if hasattr(self, "_angular_velocity"):
+            self._navier_stokes_solver.set_angular_velocity(self._angular_velocity)
 
         # pass boundary conditions
         if hasattr(self, "_bcs"):
@@ -718,6 +724,9 @@ class InstationaryProblem(ProblemBase):
             # advance time
             self._time_stepping.advance_time()
             self._navier_stokes_solver.advance_time()
+            if hasattr(self, "_angular_velocity"):
+                self._navier_stokes_solver._angular_velocity._modify_time()
+                self._navier_stokes_solver._angular_velocity.set_time(self._time_stepping.current_time)
             # write XDMF-files
             if self._output_frequency > 0:
                 if self._time_stepping.step_number % self._output_frequency == 0:
