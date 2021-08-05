@@ -16,15 +16,15 @@ class AngularVelocityFunction(FunctionTime):
         return 1.0
 
 class RotationalCouetteFlow(StationaryProblem):
-    def __init__(self, n_refinements, radii, main_dir=None):
+    def __init__(self, n_points, radii, main_dir=None):
         super().__init__(main_dir)
         self._radii = radii
-        self._n_refinements = n_refinements
+        self._n_points = n_points
         self._problem_name = "RotationalCouette"
 
     def setup_mesh(self):
         # create mesh
-        self._mesh, self._boundary_markers = spherical_shell(2, self._radii, self._n_refinements)
+        self._mesh, self._boundary_markers = spherical_shell(2, self._radii, n_points)
         
     def set_angular_velocity(self):
         function = AngularVelocityFunction()
@@ -42,7 +42,7 @@ class RotationalCouetteFlow(StationaryProblem):
 
 
 def test_rotational_couette():
-    rotational_couette_flow = RotationalCouetteFlow(0, (0.25, 1.0))
+    rotational_couette_flow = RotationalCouetteFlow(60, (0.25, 1.0))
     rotational_couette_flow.solve_problem()
 
 
