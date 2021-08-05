@@ -64,7 +64,7 @@ class CircularBoundary(dlfn.SubDomain):
         return result and on_boundary
 
 
-def spherical_shell(dim, radii, n_refinements=0):
+def spherical_shell(dim, radii, n_points=10):
     """
     Creates the mesh of a spherical shell using the mshr module.
     """
@@ -77,7 +77,7 @@ def spherical_shell(dim, radii, n_refinements=0):
     assert isinstance(ro, float) and ro > 0.
     assert ri < ro
 
-    assert isinstance(n_refinements, int) and n_refinements >= 0
+    assert isinstance(n_points, int) and n_points >= 0
 
     # mesh generation
     if dim == 2:
@@ -88,16 +88,13 @@ def spherical_shell(dim, radii, n_refinements=0):
     if dim == 2:
         domain = Circle(center, ro) \
                - Circle(center, ri)
-        mesh = generate_mesh(domain, 25)
+        mesh = generate_mesh(domain, n_points)
     elif dim == 3:
         domain = Sphere(center, ro) \
                - Sphere(center, ri)
-        mesh = generate_mesh(domain, 15)
-
-    # mesh refinement
-    for i in range(n_refinements):
-        mesh = dlfn.refine(mesh)
-
+        mesh = generate_mesh(domain, n_points)
+    # does the if-query have to be adjusted if only the points are given between dim 2 and 3?
+        
     # subdomains for boundaries
     facet_marker = dlfn.MeshFunction("size_t", mesh, mesh.topology().dim() - 1)
     facet_marker.set_all(0)
