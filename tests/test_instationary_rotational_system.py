@@ -93,7 +93,7 @@ class InstatRotationalCouetteFlow(InstationaryProblem):
         
     
 def test_instat_rotational_couette():
-    instat_rotational_couette_flow = InstatRotationalCouetteFlow(0, (0.25, 0.5))
+    instat_rotational_couette_flow = InstatRotationalCouetteFlow(60, (0.25, 0.5))
     instat_rotational_couette_flow.solve_problem()
 
 
