@@ -23,7 +23,6 @@ class AngularVelocityFunction(FunctionTime):
             
         self._ramp_time = 1.0
         self._alpha_acc = 1.0
-        print(self._current_time)
         
     def value(self):
         if self._current_time < self._ramp_time:
