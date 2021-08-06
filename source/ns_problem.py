@@ -707,6 +707,10 @@ class InstationaryProblem(ProblemBase):
         # time loop
         assert hasattr(self, "_postprocessing_frequency")
         assert hasattr(self, "_output_frequency")
+        
+        error_rel = []
+        time = []
+        
         while not self._time_stepping.is_at_end() and \
                 self._time_stepping.step_number < self._n_max_steps:
             # set next step size
@@ -724,6 +728,19 @@ class InstationaryProblem(ProblemBase):
             # advance time
             self._time_stepping.advance_time()
             self._navier_stokes_solver.advance_time()
+            #calculate relative error
+            if hasattr(self, "_error_frequency"):
+                if self._time_stepping.step_number % self._error_frequency == 0:
+                    velocity = self._get_velocity()
+                    err = dlfn.errornorm(self._velocity_exact, velocity)
+                    err_rel = err / dlfn.norm(self._velocity_exact, mesh=self._mesh)
+                    error_rel.append(err_rel)
+                    time.append(self._time_stepping.current_time)
+                    str = "\n -------------------------------------\n"
+                    str += " Relative velocity error = {:1.5e}".format(err_rel)
+                    str += "\n -------------------------------------\n"
+                    print(str)
+            # advance time for angular velocity
             if hasattr(self, "_angular_velocity"):
                 self._navier_stokes_solver._angular_velocity._modify_time()
                 self._navier_stokes_solver._angular_velocity.set_time(self._time_stepping.current_time)
@@ -732,3 +749,6 @@ class InstationaryProblem(ProblemBase):
                 if self._time_stepping.step_number % self._output_frequency == 0:
                     self._write_xdmf_file(current_time=self._time_stepping.current_time)
         print(self._time_stepping)
+        
+        print(error_rel)
+        print(time)
