@@ -69,7 +69,7 @@ class InstatRotationalCouetteFlow(InstationaryProblem):
 
     def setup_mesh(self):
         # create mesh
-        self._mesh, self._boundary_markers = spherical_shell(2, self._radii, n_points)
+        self._mesh, self._boundary_markers = spherical_shell(2, self._radii, self._n_points)
         
     def set_angular_velocity(self):
         function = AngularVelocityFunction()            
