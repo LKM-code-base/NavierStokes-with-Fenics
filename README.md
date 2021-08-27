@@ -3,7 +3,7 @@
 
 # Flow problems with FEniCS
 
-Files and codes of solving flow problems with FEniCS.
+Solving flow problems in FEniCS.
 
 
 ToDo list:
