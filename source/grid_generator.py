@@ -93,8 +93,7 @@ def spherical_shell(dim, radii, n_points=10):
         domain = Sphere(center, ro) \
                - Sphere(center, ri)
         mesh = generate_mesh(domain, n_points)
-    # does the if-query have to be adjusted if only the points are given between dim 2 and 3?
-        
+
     # subdomains for boundaries
     facet_marker = dlfn.MeshFunction("size_t", mesh, mesh.topology().dim() - 1)
     facet_marker.set_all(0)

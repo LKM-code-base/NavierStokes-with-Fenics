@@ -93,10 +93,9 @@ def test_equation_coefficients():
     _ = eq03.equation_coefficients
     print(eq03)
     eq03.modify_dimensionless_number("Re", 10.0)
-    print(eq03.get_file_suffix())    
+    print(eq03.get_file_suffix())
 
 
 if __name__ == "__main__":
     test_angular_velocity_vector()
     test_equation_coefficients()
-

@@ -482,9 +482,9 @@ class StationaryProblem(ProblemBase):
         finalRe = self._coefficient_handler.Re  # pragma: no cover
         assert finalRe is not None  # pragma: no cover
         logRange = np.logspace(np.log10(10.0), np.log10(finalRe),
-                                 num=8, endpoint=True)  # pragma: no cover
+                               num=8, endpoint=True)  # pragma: no cover
         linRange = np.linspace(logRange[-2], finalRe,
-                                 num=8, endpoint=True)  # pragma: no cover
+                               num=8, endpoint=True)  # pragma: no cover
         finalRange = np.concatenate((logRange[:-2], linRange))  # pragma: no cover
         for Re in finalRange:  # pragma: no cover
             # modify dimensionless numbers
@@ -637,7 +637,7 @@ class InstationaryProblem(ProblemBase):
 
         # setup internal constraints
         self.set_internal_constraints()
-        
+
         # setup angular velocity
         self.set_angular_velocity()
 
@@ -686,7 +686,7 @@ class InstationaryProblem(ProblemBase):
             assert hasattr(self, "_periodic_boundary_ids")
             self._navier_stokes_solver.set_periodic_boundary_conditions(self._periodic_bcs,
                                                                         self._periodic_boundary_ids)
-            
+
         if hasattr(self, "_angular_velocity"):
             self._navier_stokes_solver.set_angular_velocity(self._angular_velocity)
 
@@ -707,10 +707,7 @@ class InstationaryProblem(ProblemBase):
         # time loop
         assert hasattr(self, "_postprocessing_frequency")
         assert hasattr(self, "_output_frequency")
-        
-        error_rel = []
-        time = []
-        
+
         while not self._time_stepping.is_at_end() and \
                 self._time_stepping.step_number < self._n_max_steps:
             # set next step size
@@ -728,18 +725,6 @@ class InstationaryProblem(ProblemBase):
             # advance time
             self._time_stepping.advance_time()
             self._navier_stokes_solver.advance_time()
-            #calculate relative error
-            if hasattr(self, "_error_frequency"):
-                if self._time_stepping.step_number % self._error_frequency == 0:
-                    velocity = self._get_velocity()
-                    err = dlfn.errornorm(self._velocity_exact, velocity)
-                    err_rel = err / dlfn.norm(self._velocity_exact, mesh=self._mesh)
-                    error_rel.append(err_rel)
-                    time.append(self._time_stepping.current_time)
-                    str = "\n -------------------------------------\n"
-                    str += " Relative velocity error = {:1.5e}".format(err_rel)
-                    str += "\n -------------------------------------\n"
-                    print(str)
             # advance time for angular velocity
             if hasattr(self, "_angular_velocity"):
                 self._navier_stokes_solver._angular_velocity._modify_time()
@@ -749,6 +734,3 @@ class InstationaryProblem(ProblemBase):
                 if self._time_stepping.step_number % self._output_frequency == 0:
                     self._write_xdmf_file(current_time=self._time_stepping.current_time)
         print(self._time_stepping)
-        
-        print(error_rel)
-        print(time)

@@ -49,9 +49,9 @@ def test_hyper_rectangle():
 
 def test_spherical_shell():
     # two-dimensional case
-    _, _ = spherical_shell(2, (0.3, 1.0), 2)
+    _, _ = spherical_shell(2, (0.3, 1.0), 25)
     # three-dimensional case
-    _, _ = spherical_shell(3, (0.3, 1.0), 2)
+    _, _ = spherical_shell(3, (0.3, 1.0), 25)
 
 
 def test_extract_boundary_markers():

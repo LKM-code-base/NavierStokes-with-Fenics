@@ -184,7 +184,7 @@ class SolverBase:
         else:  # pragma: no cover
             assert len(self._Omega) == 3
             F += dlfn.Constant(2.0) * self._equation_coefficients["coriolis_term"] * \
-                    dot(dlfn.cross(omega, velocity), w) * dV
+                dot(dlfn.cross(omega, velocity), w) * dV
         return F
 
     def _add_euler_acceleration(self, F, w):
@@ -492,7 +492,8 @@ class SolverBase:
             return self._equation_coefficients["convective_term"] * \
                     (dot(dot(grad(v), u), w) + self._one_half * dot(div(u) * v, w))
         elif self._form_convective_term is WeakFormConvectiveTerm.skew_symmetric_form:
-            return self._equation_coefficients["convective_term"] * self._one_half * (dot(dot(grad(v), u), w) - dot(dot(grad(w), u), v))
+            return self._equation_coefficients["convective_term"] * self._one_half *\
+                    (dot(dot(grad(v), u), w) - dot(dot(grad(w), u), v))
 
     def _setup_function_spaces(self):
         """

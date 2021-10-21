@@ -8,6 +8,7 @@ import math
 __all__ = ["AngularVelocityVector", "CustomNonlinearProblem",
            "EquationCoefficientHandler"]
 
+
 class AngularVelocityVector:
     def __init__(self, space_dim=2, function=None):
         # input check
@@ -40,7 +41,7 @@ class AngularVelocityVector:
             _ = self._angular_velocity.derivative()
         except RuntimeError:
             derivative_exists = False
-        except:  # pragma: no cover
+        except Exception:  # pragma: no cover
             raise RuntimeError()
         if derivative_exists:
             derivative_value = self._angular_velocity.derivative()
@@ -57,12 +58,12 @@ class AngularVelocityVector:
         assert isinstance(function, FunctionTime)
         if self._space_dim == 2:
             assert function.value_size == 1
-        else:    
+        else:
             assert function.value_size == 3
         self._angular_velocity = function
         self._setup_angular_velocity()
         self._setup_angular_acceleration()
-        
+
     def set_time(self, current_time):
         assert isinstance(current_time, float)
         assert current_time >= self._current_time
@@ -99,7 +100,7 @@ class FunctionTime:
         Purely virtual method returning the time derivative of the function.
         """
         raise NotImplementedError("You are calling a purely virtual method.")
-    
+
     def set_time(self, current_time):
         assert isinstance(current_time, float)
         assert current_time >= self._current_time
@@ -255,7 +256,7 @@ class EquationCoefficientHandler:
         self._equation_coefficients["convective_term"] = 1.0
 
         if "Ro" not in self._dimensionless_numbers and \
-               "Ek" not in self._dimensionless_numbers:
+                "Ek" not in self._dimensionless_numbers:
             self._equation_coefficients["coriolis_term"] = None
             self._equation_coefficients["euler_term"] = None
             self._equation_coefficients["pressure_term"] = 1.0
