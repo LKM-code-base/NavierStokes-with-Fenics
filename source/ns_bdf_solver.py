@@ -73,9 +73,12 @@ class ImplicitBDFSolver(InstationarySolverBase):
                       ) * dV
         # add boundary tractions
         F_momentum = self._add_boundary_tractions(F_momentum, w)
-
         # add body force term
         F_momentum = self._add_body_forces(F_momentum, w)
+        # add Coriolis acceleration
+        F_momentum = self._add_coriolis_acceleration(F_momentum, velocity, w)
+        # add Euler acceleration
+        F_momentum = self._add_euler_acceleration(F_momentum, w)
 
         # joint weak form
         self._F = F_mass + F_momentum

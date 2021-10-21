@@ -275,9 +275,15 @@ class ProblemBase:
         """
         raise NotImplementedError("You are calling a purely virtual method.")
 
+    def set_angular_velocity(self):  # pragma: no cover
+        """
+        Virtual method for specifying the angular velocity of the rotating system.
+        """
+        pass
+
     def set_boundary_conditions(self):  # pragma: no cover
         """
-        Purely virtual method for specifying the boundary conditions of the
+        Virtual method for specifying the boundary conditions of the
         problem.
         """
         pass
@@ -401,6 +407,9 @@ class StationaryProblem(ProblemBase):
         # setup internal constraints
         self.set_internal_constraints()
 
+        # setup angular velocity
+        self.set_angular_velocity()
+
         # setup boundary conditions
         self.set_boundary_conditions()
 
@@ -432,6 +441,9 @@ class StationaryProblem(ProblemBase):
             assert hasattr(self, "_periodic_boundary_ids")
             self._navier_stokes_solver.set_periodic_boundary_conditions(self._periodic_bcs,
                                                                         self._periodic_boundary_ids)
+
+        if hasattr(self, "_angular_velocity"):
+            self._navier_stokes_solver.set_angular_velocity(self._angular_velocity)
 
         # pass boundary conditions
         if hasattr(self, "_internal_constraints"):
@@ -470,9 +482,9 @@ class StationaryProblem(ProblemBase):
         finalRe = self._coefficient_handler.Re  # pragma: no cover
         assert finalRe is not None  # pragma: no cover
         logRange = np.logspace(np.log10(10.0), np.log10(finalRe),
-                                 num=8, endpoint=True)  # pragma: no cover
+                               num=8, endpoint=True)  # pragma: no cover
         linRange = np.linspace(logRange[-2], finalRe,
-                                 num=8, endpoint=True)  # pragma: no cover
+                               num=8, endpoint=True)  # pragma: no cover
         finalRange = np.concatenate((logRange[:-2], linRange))  # pragma: no cover
         for Re in finalRange:  # pragma: no cover
             # modify dimensionless numbers
@@ -626,6 +638,9 @@ class InstationaryProblem(ProblemBase):
         # setup internal constraints
         self.set_internal_constraints()
 
+        # setup angular velocity
+        self.set_angular_velocity()
+
         # setup boundary conditions
         self.set_boundary_conditions()
 
@@ -672,6 +687,9 @@ class InstationaryProblem(ProblemBase):
             self._navier_stokes_solver.set_periodic_boundary_conditions(self._periodic_bcs,
                                                                         self._periodic_boundary_ids)
 
+        if hasattr(self, "_angular_velocity"):
+            self._navier_stokes_solver.set_angular_velocity(self._angular_velocity)
+
         # pass boundary conditions
         if hasattr(self, "_bcs"):
             if hasattr(self, "_internal_constraints"):
@@ -689,6 +707,7 @@ class InstationaryProblem(ProblemBase):
         # time loop
         assert hasattr(self, "_postprocessing_frequency")
         assert hasattr(self, "_output_frequency")
+
         while not self._time_stepping.is_at_end() and \
                 self._time_stepping.step_number < self._n_max_steps:
             # set next step size
@@ -706,6 +725,10 @@ class InstationaryProblem(ProblemBase):
             # advance time
             self._time_stepping.advance_time()
             self._navier_stokes_solver.advance_time()
+            # advance time for angular velocity
+            if hasattr(self, "_angular_velocity"):
+                self._navier_stokes_solver._angular_velocity._modify_time()
+                self._navier_stokes_solver._angular_velocity.set_time(self._time_stepping.current_time)
             # write XDMF-files
             if self._output_frequency > 0:
                 if self._time_stepping.step_number % self._output_frequency == 0:

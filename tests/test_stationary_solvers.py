@@ -15,6 +15,7 @@ from grid_generator import HyperRectangleBoundaryMarkers
 
 dlfn.set_log_level(20)
 
+
 class PeriodicDomain(dlfn.SubDomain):
     def inside(self, x, on_boundary):
         """Return True if `x` is located on the master edge and False
@@ -30,10 +31,10 @@ class PeriodicDomain(dlfn.SubDomain):
         x_master[0] = x_slave[0] - 1.0
         x_master[1] = x_slave[1]
 
+
 class CavityProblem(StationaryProblem):
     def __init__(self, n_points, main_dir=None):
         super().__init__(main_dir)
-
         self._n_points = n_points
         self._problem_name = "Cavity"
 
@@ -50,6 +51,7 @@ class CavityProblem(StationaryProblem):
 
     def set_equation_coefficients(self):
         self._coefficient_handler = EquationCoefficientHandler(Re=10.0)
+
 
 class GravityDrivenFlowProblem(StationaryProblem):
     def __init__(self, n_points, main_dir=None):
@@ -208,7 +210,7 @@ class ChannelFlowProblem(StationaryProblem):
             self._bcs.append((VelocityBCType.no_slip, Markers.top.value, None))
             # pressure at the outlet (as a constant)
             self._bcs.append((PressureBCType.constant, Markers.right.value, 0.0))
-    
+
     def set_equation_coefficients(self):
         self._coefficient_handler = EquationCoefficientHandler(Re=1.0)
 
