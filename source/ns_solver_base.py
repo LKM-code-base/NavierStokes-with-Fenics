@@ -67,7 +67,10 @@ class SolverBase:
     # class variables
     _null_scalar = dlfn.Constant(0., name="null")
     _one_half = dlfn.Constant(0.5, name="one_half")
-    _form_function_types = (dlfn.function.function.Function, ufl.tensors.ListTensor, ufl.indexed.Indexed)
+    _form_function_types = (dlfn.function.argument.Argument,
+                            dlfn.function.function.Function,
+                            ufl.tensors.ListTensor,
+                            ufl.indexed.Indexed)
     _form_trial_function_types = (dlfn.function.argument.Argument, ufl.tensors.ListTensor)
     _sub_space_association = {0: "velocity", 1: "pressure"}
     _field_association = {value: key for key, value in _sub_space_association.items()}
@@ -523,123 +526,138 @@ class SolverBase:
     def _setup_boundary_conditions(self):
         assert hasattr(self, "_Wh")
         assert hasattr(self, "_boundary_markers")
-
         # empty dirichlet bcs
         self._dirichlet_bcs = []
-
         # velocity part
         if hasattr(self, "_velocity_bcs"):
             velocity_space = self._Wh.sub(self._field_association["velocity"])
-            for bc in self._velocity_bcs:
-                # unpack values
-                if len(bc) == 3:
-                    bc_type, bndry_id, value = bc
-                elif len(bc) == 4:
-                    bc_type, bndry_id, component_index, value = bc
-                else:  # pragma: no cover
-                    raise RuntimeError()
-                # create dolfin.DirichletBC object
-                if bc_type is VelocityBCType.no_slip:
-                    bc_object = dlfn.DirichletBC(velocity_space, self._null_vector,
-                                                 self._boundary_markers, bndry_id)
-                    self._dirichlet_bcs.append(bc_object)
+            self._setup_velocity_boundary_conditions(self._dirichlet_bcs,
+                                                     self._velocity_bcs,
+                                                     velocity_space)
+        # pressure part
+        if hasattr(self, "_pressure_bcs"):
+            pressure_space = self._Wh.sub(self._field_association["pressure"])
+            self._setup_pressure_boundary_conditions(self._dirichlet_bcs,
+                                                     self._pressure_bcs,
+                                                     pressure_space)
+        if len(self._dirichlet_bcs) == 0:
+            assert hasattr(self, "_constrained_domain")
 
-                elif bc_type is VelocityBCType.no_normal_flux:
-                    # compute normal vector of boundary
-                    bndry_normal = boundary_normal(self._mesh, self._boundary_markers, bndry_id)
-                    # find associated component
-                    bndry_normal = np.array(bndry_normal)
-                    normal_component_index = int(np.abs(bndry_normal).argmax())
-                    # check that direction is either e_x, e_y or e_z
-                    assert abs(abs(bndry_normal[normal_component_index]) - 1.0) < 5.0e-15
-                    assert all([abs(bndry_normal[d]) < 5.0e-15 for d in range(self._space_dim) if d != normal_component_index])
-                    # construct boundary condition on subspace
-                    bc_object = dlfn.DirichletBC(velocity_space.sub(normal_component_index),
+    def _setup_velocity_boundary_conditions(self, dirichlet_bc_collection,
+                                            velocity_bcs, velocity_space):
+        assert isinstance(dirichlet_bc_collection, list)
+        assert isinstance(velocity_bcs, list)
+        assert isinstance(velocity_space, dlfn.FunctionSpace)
+
+        for bc in velocity_bcs:
+            # unpack values
+            if len(bc) == 3:
+                bc_type, bndry_id, value = bc
+            elif len(bc) == 4:
+                bc_type, bndry_id, component_index, value = bc
+            else:  # pragma: no cover
+                raise RuntimeError()
+            # create dolfin.DirichletBC object
+            if bc_type is VelocityBCType.no_slip:
+                bc_object = dlfn.DirichletBC(velocity_space, self._null_vector,
+                                             self._boundary_markers, bndry_id)
+                dirichlet_bc_collection.append(bc_object)
+
+            elif bc_type is VelocityBCType.no_normal_flux:
+                # compute normal vector of boundary
+                bndry_normal = boundary_normal(self._mesh, self._boundary_markers, bndry_id)
+                # find associated component
+                bndry_normal = np.array(bndry_normal)
+                normal_component_index = int(np.abs(bndry_normal).argmax())
+                # check that direction is either e_x, e_y or e_z
+                assert abs(abs(bndry_normal[normal_component_index]) - 1.0) < 5.0e-15
+                assert all([abs(bndry_normal[d]) < 5.0e-15 for d in range(self._space_dim) if d != normal_component_index])
+                # construct boundary condition on subspace
+                bc_object = dlfn.DirichletBC(velocity_space.sub(normal_component_index),
+                                             self._null_scalar, self._boundary_markers,
+                                             bndry_id)
+                dirichlet_bc_collection.append(bc_object)
+
+            elif bc_type is VelocityBCType.no_tangential_flux:
+                # compute normal vector of boundary
+                bndry_normal = boundary_normal(self._mesh, self._boundary_markers, bndry_id)
+                # find associated component
+                bndry_normal = np.array(bndry_normal)
+                normal_component_index = int(np.abs(bndry_normal).argmax())
+                # check that direction is either e_x, e_y or e_z
+                assert abs(bndry_normal[normal_component_index] - 1.0) < 5.0e-15
+                assert all([abs(bndry_normal[d]) < 5.0e-15 for d in range(self._space_dim) if d != normal_component_index])
+                # compute tangential components
+                tangential_component_indices = (d for d in range(self._space_dim) if d != normal_component_index)
+                # construct boundary condition on subspace
+                for component_index in tangential_component_indices:
+                    bc_object = dlfn.DirichletBC(velocity_space.sub(component_index),
                                                  self._null_scalar, self._boundary_markers,
                                                  bndry_id)
-                    self._dirichlet_bcs.append(bc_object)
+                    dirichlet_bc_collection.append(bc_object)
 
-                elif bc_type is VelocityBCType.no_tangential_flux:
-                    # compute normal vector of boundary
-                    bndry_normal = boundary_normal(self._mesh, self._boundary_markers, bndry_id)
-                    # find associated component
-                    bndry_normal = np.array(bndry_normal)
-                    normal_component_index = int(np.abs(bndry_normal).argmax())
-                    # check that direction is either e_x, e_y or e_z
-                    assert abs(bndry_normal[normal_component_index] - 1.0) < 5.0e-15
-                    assert all([abs(bndry_normal[d]) < 5.0e-15 for d in range(self._space_dim) if d != normal_component_index])
-                    # compute tangential components
-                    tangential_component_indices = (d for d in range(self._space_dim) if d != normal_component_index)
-                    # construct boundary condition on subspace
-                    for component_index in tangential_component_indices:
-                        bc_object = dlfn.DirichletBC(velocity_space.sub(component_index),
-                                                     self._null_scalar, self._boundary_markers,
-                                                     bndry_id)
-                        self._dirichlet_bcs.append(bc_object)
+            elif bc_type is VelocityBCType.constant:
+                assert isinstance(value, (tuple, list))
+                const_function = dlfn.Constant(value)
+                bc_object = dlfn.DirichletBC(velocity_space, const_function,
+                                             self._boundary_markers, bndry_id)
+                dirichlet_bc_collection.append(bc_object)
 
-                elif bc_type is VelocityBCType.constant:
-                    assert isinstance(value, (tuple, list))
-                    const_function = dlfn.Constant(value)
-                    bc_object = dlfn.DirichletBC(velocity_space, const_function,
-                                                 self._boundary_markers, bndry_id)
-                    self._dirichlet_bcs.append(bc_object)
+            elif bc_type is VelocityBCType.constant_component:
+                assert isinstance(value, float)
+                const_function = dlfn.Constant(value)
+                bc_object = dlfn.DirichletBC(velocity_space.sub(component_index),
+                                             const_function,
+                                             self._boundary_markers, bndry_id)
+                dirichlet_bc_collection.append(bc_object)
 
-                elif bc_type is VelocityBCType.constant_component:
-                    assert isinstance(value, float)
-                    const_function = dlfn.Constant(value)
-                    bc_object = dlfn.DirichletBC(velocity_space.sub(component_index),
-                                                 const_function,
-                                                 self._boundary_markers, bndry_id)
-                    self._dirichlet_bcs.append(bc_object)
+            elif bc_type is VelocityBCType.function:
+                assert isinstance(value, dlfn.Expression)
+                bc_object = dlfn.DirichletBC(velocity_space, value,
+                                             self._boundary_markers, bndry_id)
+                dirichlet_bc_collection.append(bc_object)
 
-                elif bc_type is VelocityBCType.function:
-                    assert isinstance(value, dlfn.Expression)
-                    bc_object = dlfn.DirichletBC(velocity_space, value,
-                                                 self._boundary_markers, bndry_id)
-                    self._dirichlet_bcs.append(bc_object)
+            elif bc_type is VelocityBCType.function_component:
+                assert isinstance(value, dlfn.Expression)
+                bc_object = dlfn.DirichletBC(velocity_space.sub(component_index),
+                                             value,
+                                             self._boundary_markers, bndry_id)
+                dirichlet_bc_collection.append(bc_object)
 
-                elif bc_type is VelocityBCType.function_component:
-                    assert isinstance(value, dlfn.Expression)
-                    bc_object = dlfn.DirichletBC(velocity_space.sub(component_index),
-                                                 value,
-                                                 self._boundary_markers, bndry_id)
-                    self._dirichlet_bcs.append(bc_object)
+            else:  # pragma: no cover
+                raise RuntimeError()
 
-                else:  # pragma: no cover
-                    raise RuntimeError()
+    def _setup_pressure_boundary_conditions(self, dirichlet_bc_collection,
+                                            pressure_bcs, pressure_space):
+        assert isinstance(dirichlet_bc_collection, list)
+        assert isinstance(pressure_bcs, list)
+        assert isinstance(pressure_space, dlfn.FunctionSpace)
+        for bc in pressure_bcs:
+            # unpack values
+            if len(bc) == 3:
+                bc_type, bndry_id, value = bc
+            else:  # pragma: no cover
+                raise RuntimeError()
+            # create dolfin.DirichletBC object
+            if bc_type is PressureBCType.constant:
+                assert isinstance(value, float)
+                const_function = dlfn.Constant(value)
+                bc_object = dlfn.DirichletBC(pressure_space, const_function,
+                                             self._boundary_markers, bndry_id)
+                dirichlet_bc_collection.append(bc_object)
 
-        # pressure part
-        pressure_space = self._Wh.sub(self._field_association["pressure"])
-        if hasattr(self, "_pressure_bcs"):
-            for bc in self._pressure_bcs:
-                # unpack values
-                if len(bc) == 3:
-                    bc_type, bndry_id, value = bc
-                else:  # pragma: no cover
-                    raise RuntimeError()
-                # create dolfin.DirichletBC object
-                if bc_type is PressureBCType.constant:
-                    assert isinstance(value, float)
-                    const_function = dlfn.Constant(value)
-                    bc_object = dlfn.DirichletBC(pressure_space, const_function,
-                                                 self._boundary_markers, bndry_id)
-                    self._dirichlet_bcs.append(bc_object)
+            elif bc_type is PressureBCType.function:
+                assert isinstance(value, dlfn.Expression)
+                bc_object = dlfn.DirichletBC(pressure_space, value,
+                                             self._boundary_markers, bndry_id)
+                dirichlet_bc_collection.append(bc_object)
 
-                elif bc_type is PressureBCType.function:
-                    assert isinstance(value, dlfn.Expression)
-                    bc_object = dlfn.DirichletBC(pressure_space, value,
-                                                 self._boundary_markers, bndry_id)
-                    self._dirichlet_bcs.append(bc_object)
-
-                elif bc_type is PressureBCType.mean_value:
-                    assert bndry_id is None
-                    assert isinstance(value, float)
-                    self._mean_pressure_value = value
-                else:  # pragma: no cover
-                    raise RuntimeError()
-
-            if len(self._dirichlet_bcs) == 0:
-                assert hasattr(self, "_constrained_domain")
+            elif bc_type is PressureBCType.mean_value:
+                assert bndry_id is None
+                assert isinstance(value, float)
+                self._mean_pressure_value = value
+            else:  # pragma: no cover
+                raise RuntimeError()
 
     def _viscous_term(self, u, v):
         assert hasattr(self, "_equation_coefficients")
@@ -1108,8 +1126,7 @@ class InstationarySolverBase(SolverBase):
         assert isinstance(initial_conditions, dict)
         assert "velocity" in initial_conditions
         # check that function spaces exist
-        if not all(hasattr(self, attr) for attr in ("_Wh",
-                                                    "_solutions")):
+        if not all(hasattr(self, attr) for attr in ("_Wh", "_solutions")):
             self._setup_function_spaces()
         # split functions
         velocity, pressure = self._solutions[0].split()
@@ -1135,7 +1152,6 @@ class InstationarySolverBase(SolverBase):
                                                     velocity_space)
         self._assign_function(old_velocity, projected_velocity_condition)
         self._assign_function(velocity, projected_velocity_condition)
-
         # pressure part
         if "pressure" in initial_conditions:
             pressure_condition = initial_conditions["pressure"]
@@ -1158,8 +1174,7 @@ class InstationarySolverBase(SolverBase):
     def solve(self):
         """Solves the problem for one time step."""
         # setup problem
-        if not all(hasattr(self, attr) for attr in ("_solver",
-                                                    "_solutions")):
+        if not all(hasattr(self, attr) for attr in self._required_objects):
             self._setup_problem()
 
         # update time
