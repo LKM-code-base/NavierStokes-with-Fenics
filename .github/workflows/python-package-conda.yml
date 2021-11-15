@@ -9,16 +9,27 @@ jobs:
       max-parallel: 5
 
     steps:
-    - uses: actions/checkout@v2
+    - name: Checkout repository and submodules
+      uses: actions/checkout@v2
+      with:
+        submodules: recursive
     - name: Set up Python 3.8
       uses: actions/setup-python@v2
       with:
         python-version: 3.8
-    - name: Checkout submodules
-      uses: textbook/git-checkout-submodule-action@2.1.1
-    - name: Install gmsh
+    - name: Add conda to system path
       run: |
-        sudo apt-get install gmsh
+        # $CONDA is an environment variable pointing to the root of the miniconda directory
+        echo $CONDA/bin >> $GITHUB_PATH
+    - name: Install dependencies
+      run: |
+        conda env update --file environment.yml --name base
+    - name: Install Gmsh
+      run: |
+        conda install -c conda-forge gmsh 
+    - name: Install FEniCS
+      run: |
+        conda install -c conda-forge fenics
     - name: Generate msh files
       shell: bash
       run: |
@@ -29,14 +40,6 @@ jobs:
           outputfile="meshes/$name.msh";
           gmsh $inputfile -3 -o $outputfile;
         done
-    - name: Add conda to system path
-      run: |
-        # $CONDA is an environment variable pointing to the root of the miniconda directory
-        echo $CONDA/bin >> $GITHUB_PATH
-    - name: Install dependencies
-      run: |
-        conda env update --file environment.yml --name base
-        conda install -c conda-forge fenics
     - name: Lint with flake8
       run: |
         conda install flake8
