@@ -10,7 +10,7 @@ import sys
 __all__ = ["generate_xdmf_mesh"]
 
 
-def _create_meshio_mesh(mesh, cell_type):
+def _create_meshio_mesh(mesh, cell_type, prune_z=False):
     """Create a meshio mesh object from a meshio mesh where only cells of
     `cell_type` are taken into account."""
     # input check
@@ -40,8 +40,12 @@ def _create_meshio_mesh(mesh, cell_type):
     else:  # pragma: no cover
         raise RuntimeError()
     # create mesh object
-    out_mesh = meshio.Mesh(points=mesh.points, cells={cell_type: cells},
-                           cell_data={data_name: [cell_data]})
+    if prune_z:
+        out_mesh = meshio.Mesh(points=mesh.points[:,:2], cells={cell_type: cells},
+               cell_data={data_name: [cell_data]})
+    else:
+        out_mesh = meshio.Mesh(points=mesh.points, cells={cell_type: cells},
+                       cell_data={data_name: [cell_data]})
     return out_mesh
 
 
@@ -91,9 +95,11 @@ def generate_xdmf_mesh(geo_file):
     if "triangle" in mesh.cells_dict and "tetra" not in mesh.cells_dict:
         assert "line" in mesh.cell_data_dict["gmsh:physical"]
         dim = 2
+        prune_z = True
     elif "triangle" in mesh.cells_dict and "tetra" in mesh.cells_dict:
         assert "triangle" in mesh.cell_data_dict["gmsh:physical"]
         dim = 3
+        prune_z = False
     else:  # pragma: no cover
         raise RuntimeError()
     # specify cell types
@@ -104,11 +110,11 @@ def generate_xdmf_mesh(geo_file):
         facet_type = "triangle"
         cell_type = "tetra"
     # extract facet mesh (codimension one)
-    facet_mesh = _create_meshio_mesh(mesh, facet_type)
+    facet_mesh = _create_meshio_mesh(mesh, facet_type, prune_z=prune_z)
     xdmf_facet_marker_file = msh_file.replace(".msh", "_facet_markers.xdmf")
     meshio.write(xdmf_facet_marker_file, facet_mesh, data_format="XML")
     # extract facet mesh (codimension one)
-    cell_mesh = _create_meshio_mesh(mesh, cell_type)
+    cell_mesh = _create_meshio_mesh(mesh, cell_type, prune_z=prune_z)
     xdmf_file = msh_file.replace(".msh", ".xdmf")
     meshio.write(xdmf_file, cell_mesh, data_format="XML")
     return xdmf_file, xdmf_facet_marker_file
