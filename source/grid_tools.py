@@ -80,6 +80,7 @@ def generate_xdmf_mesh(geo_file):
     if msh_file is None:
         try:
             subprocess.run(["gmsh", geo_file, "-3"], check=True)
+            msh_file = basename.replace(".geo", ".msh")
         except subprocess.SubprocessError:  # pragma: no cover
             raise RuntimeError("GMSH is not installed on your machine and "
                                "the msh file does not exist.")
