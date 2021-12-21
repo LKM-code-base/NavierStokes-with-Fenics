@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import glob  # pragma: no cover
-import meshio  # pragma: no cover
-from os import path  # pragma: no cover
-import subprocess  # pragma: no cover
-import sys  # pragma: no cover
+import glob
+import meshio
+from os import path
+import subprocess
+import sys
 
 
-__all__ = ["generate_xdmf_mesh"]  # pragma: no cover
+__all__ = ["generate_xdmf_mesh"]
 
 
-def _create_meshio_mesh(mesh, cell_type, prune_z=False):  # pragma: no cover
+def _create_meshio_mesh(mesh, cell_type, prune_z=False):
     """Create a meshio mesh object from a meshio mesh where only cells of
     `cell_type` are taken into account."""
     # input check
     assert isinstance(mesh, meshio.Mesh)
     assert isinstance(cell_type, str)
-    assert cell_type in ("line", "triangle", "tetra")
     assert isinstance(prune_z, bool)
+    assert cell_type in ("line", "triangle", "tetra")
     # extract cells
     cells = mesh.get_cells_type(cell_type)
     # extract physical regions
@@ -41,11 +41,12 @@ def _create_meshio_mesh(mesh, cell_type, prune_z=False):  # pragma: no cover
     else:  # pragma: no cover
         raise RuntimeError()
     # create mesh object
-    out_mesh = meshio.Mesh(points=mesh.points, cells={cell_type: cells},
-                           cell_data={data_name: [cell_data]})
-    # remove z-component
     if prune_z:
-        out_mesh.prune_z_0()
+        out_mesh = meshio.Mesh(points=mesh.points[:,:2], cells={cell_type: cells},
+               cell_data={data_name: [cell_data]})
+    else: # pragma: no cover
+        out_mesh = meshio.Mesh(points=mesh.points, cells={cell_type: cells},
+                       cell_data={data_name: [cell_data]})
     return out_mesh
 
 
@@ -66,7 +67,7 @@ def _locate_file(basename):
     return file
 
 
-def generate_xdmf_mesh(geo_file):  # pragma: no cover
+def generate_xdmf_mesh(geo_file):
     """Generates two xdmf-files from a geo-file. The two xdmf-files
     contain the mesh and the associated facet markers. Facet markers refer to
     the markers on entities of codimension one.
@@ -82,8 +83,9 @@ def generate_xdmf_mesh(geo_file):  # pragma: no cover
     # generate msh file
     msh_file = _locate_file(basename.replace(".geo", ".msh"))
     if msh_file is None:
-        try:
+        try: # pragma: no cover
             subprocess.run(["gmsh", geo_file, "-3"], check=True)
+            msh_file = basename.replace(".geo", ".msh")
         except subprocess.SubprocessError:  # pragma: no cover
             raise RuntimeError("GMSH is not installed on your machine and "
                                "the msh file does not exist.")
@@ -94,20 +96,20 @@ def generate_xdmf_mesh(geo_file):  # pragma: no cover
     if "triangle" in mesh.cells_dict and "tetra" not in mesh.cells_dict:
         assert "line" in mesh.cell_data_dict["gmsh:physical"]
         dim = 2
-    elif "triangle" in mesh.cells_dict and "tetra" in mesh.cells_dict:
+        prune_z = True
+    elif "triangle" in mesh.cells_dict and "tetra" in mesh.cells_dict: # pragma: no cover
         assert "triangle" in mesh.cell_data_dict["gmsh:physical"]
         dim = 3
+        prune_z = False
     else:  # pragma: no cover
         raise RuntimeError()
     # specify cell types
     if dim == 2:
         facet_type = "line"
         cell_type = "triangle"
-        prune_z = True
-    elif dim == 3:
+    elif dim == 3: # pragma: no cover
         facet_type = "triangle"
         cell_type = "tetra"
-        prune_z = False
     # extract facet mesh (codimension one)
     facet_mesh = _create_meshio_mesh(mesh, facet_type, prune_z=prune_z)
     xdmf_facet_marker_file = msh_file.replace(".msh", "_facet_markers.xdmf")
