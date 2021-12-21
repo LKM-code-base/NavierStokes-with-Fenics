@@ -31,7 +31,7 @@ def _create_meshio_mesh(mesh, cell_type, prune_z=False):
             data_name = "facet_markers"
         else:  # pragma: no cover
             raise RuntimeError()
-    elif "triangle" in mesh.cells_dict and "tetra" in mesh.cells_dict:  # pragma: no cover
+    elif "triangle" in mesh.cells_dict and "tetra" in mesh.cells_dict:
         if cell_type == "tetra":
             data_name = "cell_markers"
         elif cell_type == "triangle":
@@ -97,7 +97,7 @@ def generate_xdmf_mesh(geo_file):
         assert "line" in mesh.cell_data_dict["gmsh:physical"]
         dim = 2
         prune_z = True
-    elif "triangle" in mesh.cells_dict and "tetra" in mesh.cells_dict:
+    elif "triangle" in mesh.cells_dict and "tetra" in mesh.cells_dict: # pragma: no cover
         assert "triangle" in mesh.cell_data_dict["gmsh:physical"]
         dim = 3
         prune_z = False
@@ -107,7 +107,7 @@ def generate_xdmf_mesh(geo_file):
     if dim == 2:
         facet_type = "line"
         cell_type = "triangle"
-    elif dim == 3:
+    elif dim == 3: # pragma: no cover
         facet_type = "triangle"
         cell_type = "tetra"
     # extract facet mesh (codimension one)
