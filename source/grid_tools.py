@@ -10,14 +10,13 @@ import sys  # pragma: no cover
 __all__ = ["generate_xdmf_mesh"]  # pragma: no cover
 
 
-def _create_meshio_mesh(mesh, cell_type, prune_z=False):  # pragma: no cover
+def _create_meshio_mesh(mesh, cell_type):  # pragma: no cover
     """Create a meshio mesh object from a meshio mesh where only cells of
     `cell_type` are taken into account."""
     # input check
     assert isinstance(mesh, meshio.Mesh)
     assert isinstance(cell_type, str)
     assert cell_type in ("line", "triangle", "tetra")
-    assert isinstance(prune_z, bool)
     # extract cells
     cells = mesh.get_cells_type(cell_type)
     # extract physical regions
@@ -43,9 +42,6 @@ def _create_meshio_mesh(mesh, cell_type, prune_z=False):  # pragma: no cover
     # create mesh object
     out_mesh = meshio.Mesh(points=mesh.points, cells={cell_type: cells},
                            cell_data={data_name: [cell_data]})
-    # remove z-component
-    if prune_z:
-        out_mesh.prune_z_0()
     return out_mesh
 
 
@@ -103,17 +99,15 @@ def generate_xdmf_mesh(geo_file):  # pragma: no cover
     if dim == 2:
         facet_type = "line"
         cell_type = "triangle"
-        prune_z = True
     elif dim == 3:
         facet_type = "triangle"
         cell_type = "tetra"
-        prune_z = False
     # extract facet mesh (codimension one)
-    facet_mesh = _create_meshio_mesh(mesh, facet_type, prune_z=prune_z)
+    facet_mesh = _create_meshio_mesh(mesh, facet_type)
     xdmf_facet_marker_file = msh_file.replace(".msh", "_facet_markers.xdmf")
     meshio.write(xdmf_facet_marker_file, facet_mesh, data_format="XML")
     # extract facet mesh (codimension one)
-    cell_mesh = _create_meshio_mesh(mesh, cell_type, prune_z=prune_z)
+    cell_mesh = _create_meshio_mesh(mesh, cell_type)
     xdmf_file = msh_file.replace(".msh", ".xdmf")
     meshio.write(xdmf_file, cell_mesh, data_format="XML")
     return xdmf_file, xdmf_facet_marker_file
