@@ -16,6 +16,7 @@ def _create_meshio_mesh(mesh, cell_type, prune_z=False):
     # input check
     assert isinstance(mesh, meshio.Mesh)
     assert isinstance(cell_type, str)
+    assert isinstance(prune_z, bool)
     assert cell_type in ("line", "triangle", "tetra")
     # extract cells
     cells = mesh.get_cells_type(cell_type)
@@ -30,7 +31,7 @@ def _create_meshio_mesh(mesh, cell_type, prune_z=False):
             data_name = "facet_markers"
         else:  # pragma: no cover
             raise RuntimeError()
-    elif "triangle" in mesh.cells_dict and "tetra" in mesh.cells_dict:
+    elif "triangle" in mesh.cells_dict and "tetra" in mesh.cells_dict:  # pragma: no cover
         if cell_type == "tetra":
             data_name = "cell_markers"
         elif cell_type == "triangle":
@@ -43,7 +44,7 @@ def _create_meshio_mesh(mesh, cell_type, prune_z=False):
     if prune_z:
         out_mesh = meshio.Mesh(points=mesh.points[:,:2], cells={cell_type: cells},
                cell_data={data_name: [cell_data]})
-    else:
+    else: # pragma: no cover
         out_mesh = meshio.Mesh(points=mesh.points, cells={cell_type: cells},
                        cell_data={data_name: [cell_data]})
     return out_mesh
@@ -82,7 +83,7 @@ def generate_xdmf_mesh(geo_file):
     # generate msh file
     msh_file = _locate_file(basename.replace(".geo", ".msh"))
     if msh_file is None:
-        try:
+        try: # pragma: no cover
             subprocess.run(["gmsh", geo_file, "-3"], check=True)
             msh_file = basename.replace(".geo", ".msh")
         except subprocess.SubprocessError:  # pragma: no cover
