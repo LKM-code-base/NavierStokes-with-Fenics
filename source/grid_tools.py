@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import glob  # pragma: no cover
-import meshio  # pragma: no cover
-from os import path  # pragma: no cover
-import subprocess  # pragma: no cover
-import sys  # pragma: no cover
+import glob
+import meshio
+from os import path
+import subprocess
+import sys
 
 
-__all__ = ["generate_xdmf_mesh"]  # pragma: no cover
+__all__ = ["generate_xdmf_mesh"]
 
 
-def _create_meshio_mesh(mesh, cell_type):  # pragma: no cover
+def _create_meshio_mesh(mesh, cell_type):
     """Create a meshio mesh object from a meshio mesh where only cells of
     `cell_type` are taken into account."""
     # input check
@@ -62,7 +62,7 @@ def _locate_file(basename):
     return file
 
 
-def generate_xdmf_mesh(geo_file):  # pragma: no cover
+def generate_xdmf_mesh(geo_file):
     """Generates two xdmf-files from a geo-file. The two xdmf-files
     contain the mesh and the associated facet markers. Facet markers refer to
     the markers on entities of codimension one.
