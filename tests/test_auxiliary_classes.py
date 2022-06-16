@@ -55,7 +55,6 @@ def test_angular_velocity_vector():
     _ = omega03.value
 
 
-
 def test_equation_coefficients():
     eq01 = EquationCoefficientHandler(Reynolds=50.0)
     print(eq01)

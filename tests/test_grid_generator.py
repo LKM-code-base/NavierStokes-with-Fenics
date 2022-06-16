@@ -10,7 +10,8 @@ from grid_generator import _extract_cell_markers
 from grid_generator import backward_facing_step
 from grid_generator import blasius_plate
 from grid_generator import channel_with_cylinder
-from grid_generator import cube_with_three_materials
+from grid_generator import rectangle_with_two_materials
+from grid_generator import cube_with_single_material
 import subprocess
 from os import path
 
@@ -75,7 +76,8 @@ def test_external_meshes():
     _ = backward_facing_step()
     _ = blasius_plate()
     _ = channel_with_cylinder()
-    # _ = cube_with_three_materials()
+    _ = cube_with_single_material()
+    _ = rectangle_with_two_materials()
 
 
 if __name__ == "__main__":

@@ -506,6 +506,18 @@ def channel_with_cylinder():
     return _read_external_mesh("DFGBenchmark.geo")
 
 
+def rectangle_with_two_materials():  # pragma: no cover
+    """Create a mesh of a rectangle with two different materials.
+    """
+    return _read_external_mesh("RectangleTwoMaterials.geo")
+
+
+def cube_with_single_material():  # pragma: no cover
+    """Create a mesh of a cube with a single material.
+    """
+    return _read_external_mesh("CubeSingleMaterial.geo")
+
+
 def cube_with_three_materials():  # pragma: no cover
     """Create a mesh of a cube with three different materials.
     """
