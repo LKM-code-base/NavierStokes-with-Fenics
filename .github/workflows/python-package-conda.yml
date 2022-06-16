@@ -53,7 +53,8 @@ jobs:
         conda install pytest-cov
         export PYTHONPATH=$(pwd)/source:$(pwd)/gmsh-collection/python
         pytest --cov=source --ignore=gmsh-collection/
-    - name: "Upload coverage to Codecov"
-      uses: codecov/codecov-action@v1
+    - name: Codecov
+      uses: codecov/codecov-action@v3.1.0
       with:
+        # Specify whether or not CI build should fail if Codecov runs into an error during upload
         fail_ci_if_error: true
