@@ -228,7 +228,7 @@ class BlasiusFlowProblem(StationaryProblem):
 
     def setup_mesh(self):
         # create mesh
-        self._mesh, self._boundary_markers, self._boundary_marker_map = blasius_plate()
+        self._mesh, self._boundary_markers, self._boundary_marker_map, _, _ = blasius_plate()
 
     def set_boundary_conditions(self):
         # velocity boundary conditions

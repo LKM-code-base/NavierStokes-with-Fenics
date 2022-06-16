@@ -6,6 +6,7 @@ from grid_generator import open_hyper_cube
 from grid_generator import hyper_rectangle
 from grid_generator import spherical_shell
 from grid_generator import _extract_facet_markers
+from grid_generator import _extract_cell_markers
 from grid_generator import backward_facing_step
 from grid_generator import blasius_plate
 from grid_generator import channel_with_cylinder
@@ -55,10 +56,9 @@ def test_spherical_shell():
     _, _ = spherical_shell(3, (0.3, 1.0), 25)
 
 
-def test_extract_boundary_markers():
-    url_str = "https://github.com/LKM-code-base/Gmsh-collection/blob/" + \
-              "66b29ba984ed6792f56666ee8eebc458c7a626d4/meshes/CubeThreeMaterials.geo"
-    subprocess.run(["wget", url_str], check=True)
+def test_extract_markers():
+    url_str = "https://raw.githubusercontent.com/LKM-code-base/Gmsh-collection/main/meshes/CubeThreeMaterials.geo"
+    subprocess.run(["wget", "--no-verbose", url_str], check=True, stdout=subprocess.DEVNULL)
     fname = "CubeThreeMaterials.geo"
     geo_files = glob.glob("*.geo", recursive=True)
     for file in geo_files:
@@ -66,7 +66,8 @@ def test_extract_boundary_markers():
             geo_file = file
             break
     assert path.exists(geo_file)
-    _ = _extract_facet_markers(geo_file)
+    _ = _extract_facet_markers(geo_file, 3)
+    _ = _extract_cell_markers(geo_file, 3)
     subprocess.run(["rm", geo_file], check=True)
 
 
@@ -74,11 +75,12 @@ def test_external_meshes():
     _ = backward_facing_step()
     _ = blasius_plate()
     _ = channel_with_cylinder()
-    _ = cube_with_three_materials()
+    # _ = cube_with_three_materials()
 
 
 if __name__ == "__main__":
     test_hyper_cube()
     test_open_hyper_cube()
     test_spherical_shell()
-    test_extract_boundary_markers()
+    test_extract_markers()
+    test_external_meshes()

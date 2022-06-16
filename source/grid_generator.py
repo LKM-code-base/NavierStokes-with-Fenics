@@ -372,16 +372,16 @@ def _extract_physical_region(geo_filename, codim, space_dim):
         if space_dim == 1:
             str_physical_regions = ("Physical Line", "Physical Curve")
         elif space_dim == 2:
-            str_physical_regions = ("Physical Surface")
+            str_physical_regions = ("Physical Surface", )
         elif space_dim == 3:
-            str_physical_regions = ("Physical Volume")
+            str_physical_regions = ("Physical Volume", )
     elif codim == 1:
         if space_dim == 1:
-            str_physical_regions = ("Physical Point")
+            str_physical_regions = ("Physical Point", )
         elif space_dim == 2:
             str_physical_regions = ("Physical Line", "Physical Curve")
         elif space_dim == 3:
-            str_physical_regions = ("Physical Surface")
+            str_physical_regions = ("Physical Surface", )
     # read file
     markers = dict()
     with open(geo_filename, "r") as file:
@@ -426,6 +426,8 @@ def _locate_file(basename):
     files = glob.glob("./*" + file_extension, recursive=True)
     files += glob.glob("./*/*" + file_extension, recursive=True)
     files += glob.glob("./*/*/*" + file_extension, recursive=True)
+    # the path ./../*/*/* is required when tests are executed from test directory
+    files += glob.glob("./../*/*/*" + file_extension, recursive=True)
     file = None
     for f in files:
         if basename in f:

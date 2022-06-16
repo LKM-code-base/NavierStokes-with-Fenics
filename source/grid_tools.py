@@ -84,7 +84,7 @@ def generate_xdmf_mesh(geo_file):
     msh_file = _locate_file(basename.replace(".geo", ".msh"))
     if msh_file is None:
         try:  # pragma: no cover
-            subprocess.run(["gmsh", geo_file, "-3"], check=True)
+            subprocess.run(["gmsh", "-v", "0", "-3", geo_file], check=True)
             msh_file = basename.replace(".geo", ".msh")
         except subprocess.SubprocessError:  # pragma: no cover
             raise RuntimeError("GMSH is not installed on your machine and "
@@ -118,6 +118,7 @@ def generate_xdmf_mesh(geo_file):
     cell_mesh = _create_meshio_mesh(mesh, cell_type, prune_z=prune_z)
     xdmf_file = msh_file.replace(".msh", ".xdmf")
     meshio.write(xdmf_file, cell_mesh, data_format="XML")
+
     return xdmf_file, xdmf_facet_marker_file
 
 
