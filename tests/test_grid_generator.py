@@ -9,6 +9,7 @@ from grid_generator import _extract_facet_markers
 from grid_generator import backward_facing_step
 from grid_generator import blasius_plate
 from grid_generator import channel_with_cylinder
+from grid_generator import cube_with_three_materials
 import subprocess
 from os import path
 
@@ -73,6 +74,7 @@ def test_external_meshes():
     _ = backward_facing_step()
     _ = blasius_plate()
     _ = channel_with_cylinder()
+    _ = cube_with_three_materials()
 
 
 if __name__ == "__main__":

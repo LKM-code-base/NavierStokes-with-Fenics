@@ -426,8 +426,16 @@ def _read_external_mesh(basename):
     mesh = dlfn.Mesh()
     with dlfn.XDMFFile(xdmf_file) as infile:
         infile.read(mesh)
-    # read facet markers
     space_dim = mesh.geometry().dim()
+    cell_markers = None
+    try:
+        mvc = dlfn.MeshValueCollection("size_t", mesh, space_dim)
+        with dlfn.XDMFFile(xdmf_file) as infile:
+            infile.read(mvc, "cell_markers")
+        cell_markers = dlfn.cpp.mesh.MeshFunctionSizet(mesh, mvc)
+    except Exception:
+        pass
+    # read facet markers
     mvc = dlfn.MeshValueCollection("size_t", mesh, space_dim - 1)
     assert path.exists(xdmf_facet_marker_file)
     with dlfn.XDMFFile(xdmf_facet_marker_file) as infile:
@@ -453,3 +461,9 @@ def channel_with_cylinder():
     """Create a mesh of a channel with a cylinder.
     """
     return _read_external_mesh("DFGBenchmark.geo")
+
+
+def cube_with_three_materials():
+    """Create a mesh of a cube with three different materials.
+    """
+    return _read_external_mesh("CubeThreeMaterials.xdmf")
