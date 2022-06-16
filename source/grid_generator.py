@@ -390,7 +390,7 @@ def _locate_file(basename):
     """Locate a file in the current directory.
     """
     file_extension = path.splitext(basename)[1]
-    files = glob.glob("../*/*/*" + file_extension, recursive=True)
+    files = glob.glob("./*" + file_extension, recursive=True)
     files += glob.glob("./*/*" + file_extension, recursive=True)
     files += glob.glob("./*/*/*" + file_extension, recursive=True)
     file = None
