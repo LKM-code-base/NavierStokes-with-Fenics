@@ -354,19 +354,40 @@ def open_hyper_cube(dim, n_points=10, openings=None):
     return mesh, facet_markers
 
 
-def _extract_facet_markers(geo_filename):
-    """Extract facet markers from a geo-file and returns them as a dictionary.
+def _extract_physical_region(geo_filename, codim, space_dim):
+    """Extract physical region of co-dimension `codim` from a geo-file and
+    return them as a dictionary.
     """
     # input check
     assert isinstance(geo_filename, str)
     assert path.exists(geo_filename)
     assert geo_filename.endswith(".geo")
+    assert isinstance(codim, int)
+    assert codim in (0, 1)
+    assert isinstance(space_dim, int)
+    assert space_dim > 0
+    # define strings of physical regions
+    str_physical_regions = None
+    if codim == 0:
+        if space_dim == 1:
+            str_physical_regions = ("Physical Line", "Physical Curve")
+        elif space_dim == 2:
+            str_physical_regions = ("Physical Surface")
+        elif space_dim == 3:
+            str_physical_regions = ("Physical Volume")
+    elif codim == 1:
+        if space_dim == 1:
+            str_physical_regions = ("Physical Point")
+        elif space_dim == 2:
+            str_physical_regions = ("Physical Line", "Physical Curve")
+        elif space_dim == 3:
+            str_physical_regions = ("Physical Surface")
     # read file
-    facet_markers = dict()
+    markers = dict()
     with open(geo_filename, "r") as file:
         lines = file.readlines()
         for line in lines:
-            if "Physical Curve" in line or "Physical Line" in line:
+            if any(x in line for x in str_physical_regions):
                 line = line[line.index("(")+1:line.index(")")]
                 assert "," in line
                 description, number = line.split(",")
@@ -380,10 +401,22 @@ def _extract_facet_markers(geo_filename):
                 description = description.strip('"')
                 assert description.replace(" ", "").isalpha()
                 # add to dictionary
-                assert description not in facet_markers
-                facet_markers[description] = facet_id
+                assert description not in markers
+                markers[description] = facet_id
 
-    return facet_markers
+    return markers
+
+
+def _extract_facet_markers(geo_filename, space_dim):
+    """Extract facet markers from a geo-file and return them as a dictionary.
+    """
+    return _extract_physical_region(geo_filename, 1, space_dim)
+
+
+def _extract_cell_markers(geo_filename, space_dim):
+    """Extract cell markers from a geo-file and return them as a dictionary.
+    """
+    return _extract_physical_region(geo_filename, 0, space_dim)
 
 
 def _locate_file(basename):
@@ -413,7 +446,6 @@ def _read_external_mesh(basename):
     assert basename.endswith(".geo")
     geo_file = _locate_file(basename)
     assert geo_file is not None
-    facet_marker_map = _extract_facet_markers(geo_file)
     # define xdmf files
     xdmf_file = _locate_file(basename.replace(".geo", ".xdmf"))
     xdmf_facet_marker_file = _locate_file(basename.replace(".geo", "_facet_markers.xdmf"))
@@ -421,12 +453,13 @@ def _read_external_mesh(basename):
     if xdmf_file is None or xdmf_facet_marker_file is None:
         from grid_tools import generate_xdmf_mesh
         xdmf_file, xdmf_facet_marker_file = generate_xdmf_mesh(geo_file)
-    # read xdmf files
+    # read xdmf file
     assert path.exists(xdmf_file)
     mesh = dlfn.Mesh()
     with dlfn.XDMFFile(xdmf_file) as infile:
         infile.read(mesh)
     space_dim = mesh.geometry().dim()
+    # read cell markers
     cell_markers = None
     try:
         mvc = dlfn.MeshValueCollection("size_t", mesh, space_dim)
@@ -442,7 +475,15 @@ def _read_external_mesh(basename):
         infile.read(mvc, "facet_markers")
     facet_markers = dlfn.cpp.mesh.MeshFunctionSizet(mesh, mvc)
 
-    return mesh, facet_markers, facet_marker_map
+    # create dictionaries from geo file
+    facet_marker_map = _extract_facet_markers(geo_file, space_dim)
+    if cell_markers is not None:
+        cell_marker_map = _extract_cell_markers(geo_file, space_dim)
+
+    if cell_markers is not None:
+        return mesh, facet_markers, facet_marker_map, cell_markers, cell_marker_map
+    else:
+        return mesh, facet_markers, facet_marker_map
 
 
 def backward_facing_step():
@@ -466,4 +507,4 @@ def channel_with_cylinder():
 def cube_with_three_materials():
     """Create a mesh of a cube with three different materials.
     """
-    return _read_external_mesh("CubeThreeMaterials.xdmf")
+    return _read_external_mesh("CubeThreeMaterials.geo")
