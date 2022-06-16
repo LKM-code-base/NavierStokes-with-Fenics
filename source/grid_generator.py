@@ -468,7 +468,7 @@ def _read_external_mesh(basename):
         with dlfn.XDMFFile(xdmf_file) as infile:
             infile.read(mvc, "cell_markers")
         cell_markers = dlfn.cpp.mesh.MeshFunctionSizet(mesh, mvc)
-    except Exception:
+    except Exception:  # pragma: no cover
         pass
     # read facet markers
     mvc = dlfn.MeshValueCollection("size_t", mesh, space_dim - 1)
@@ -484,7 +484,7 @@ def _read_external_mesh(basename):
 
     if cell_markers is not None:
         return mesh, facet_markers, facet_marker_map, cell_markers, cell_marker_map
-    else:
+    else:  # pragma: no cover
         return mesh, facet_markers, facet_marker_map
 
 
@@ -506,7 +506,7 @@ def channel_with_cylinder():
     return _read_external_mesh("DFGBenchmark.geo")
 
 
-def cube_with_three_materials():
+def cube_with_three_materials():  # pragma: no cover
     """Create a mesh of a cube with three different materials.
     """
     return _read_external_mesh("CubeThreeMaterials.geo")
