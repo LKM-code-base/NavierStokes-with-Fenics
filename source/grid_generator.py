@@ -369,14 +369,14 @@ def _extract_physical_region(geo_filename, codim, space_dim):
     # define strings of physical regions
     str_physical_regions = None
     if codim == 0:
-        if space_dim == 1:
+        if space_dim == 1:  # pragma: no cover
             str_physical_regions = ("Physical Line", "Physical Curve")
         elif space_dim == 2:
             str_physical_regions = ("Physical Surface", )
         elif space_dim == 3:
             str_physical_regions = ("Physical Volume", )
     elif codim == 1:
-        if space_dim == 1:
+        if space_dim == 1:  # pragma: no cover
             str_physical_regions = ("Physical Point", )
         elif space_dim == 2:
             str_physical_regions = ("Physical Line", "Physical Curve")
